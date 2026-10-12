@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.sublime-workspace
+
+# Logs
+*.log
+
+
+# Node / TypeScript build
+node_modules/
+.vscode-test/
+dist/
+out/
+
+# Package
+*.vsix
+
+# Claude project files
+.claude/*
+!.claude/rules/

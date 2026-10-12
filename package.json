@@ -1,0 +1,1544 @@
+{
+  "name": "noteroot",
+  "displayName": "NoteRoot",
+  "description": "Notes in a folder you choose: a notes tree, a Quick Note box, tags and categories, and optional encrypted sync to GitHub.",
+  "version": "0.1.0",
+  "publisher": "talakbairam",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/talakbairam/NoteRoot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/talakbairam/NoteRoot/issues"
+  },
+  "homepage": "https://github.com/talakbairam/NoteRoot#readme",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.140.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Other"
+  ],
+  "keywords": [
+    "notes",
+    "note taking",
+    "markdown",
+    "quick note",
+    "sync",
+    "github sync",
+    "encryption",
+    "encrypted notes",
+    "tags",
+    "tagging",
+    "journal",
+    "second brain",
+    "plain text",
+    "sidebar",
+    "explorer"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "The notes folder must be accessible to the extension."
+    },
+    "untrustedWorkspaces": {
+      "supported": true
+    }
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "noteRoot",
+          "title": "NoteRoot",
+          "icon": "media/noteroot.svg"
+        }
+      ]
+    },
+    "views": {
+      "noteRoot": [
+        {
+          "id": "noteRoot.quickNote",
+          "name": "Quick Note",
+          "type": "webview",
+          "icon": "media/noteroot.svg"
+        },
+        {
+          "id": "noteRoot.tree",
+          "name": "Notes",
+          "type": "tree",
+          "icon": "media/noteroot.svg"
+        },
+        {
+          "id": "noteRoot.labels",
+          "name": "Tags & Categories",
+          "type": "tree",
+          "icon": "media/noteroot.svg"
+        },
+        {
+          "id": "noteRoot.recent",
+          "name": "Pinned & Recent",
+          "type": "tree",
+          "icon": "media/noteroot.svg"
+        },
+        {
+          "id": "noteRoot.sync",
+          "name": "Actions",
+          "type": "tree",
+          "icon": "media/noteroot.svg",
+          "visibility": "collapsed"
+        },
+        {
+          "id": "noteRoot.settings",
+          "name": "Settings",
+          "type": "tree",
+          "icon": "media/noteroot.svg",
+          "visibility": "collapsed"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "noteRoot.tree",
+        "contents": "No notes folder selected.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
+        "when": "noteRoot.state == noRoot"
+      },
+      {
+        "view": "noteRoot.tree",
+        "contents": "The notes folder was not found. It may have been moved or deleted, or its drive may be disconnected.\n[Select Another Folder](command:noteRoot.selectRootFolder)\n[Create Folder Again](command:noteRoot.recreateRootFolder)",
+        "when": "noteRoot.state == missing"
+      },
+      {
+        "view": "noteRoot.tree",
+        "contents": "This notes folder is empty.\n[New File](command:noteRoot.newFile)\n[New Folder](command:noteRoot.newFolder)",
+        "when": "noteRoot.state == empty"
+      },
+      {
+        "view": "noteRoot.recent",
+        "contents": "Nothing here yet. Notes you open appear under Recent, and a note you pin stays under Pinned: right-click a note and choose Pin Note."
+      },
+      {
+        "view": "noteRoot.labels",
+        "contents": "Select a notes folder to use tags and categories.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
+        "when": "!noteRoot.hasRoot"
+      },
+      {
+        "view": "noteRoot.sync",
+        "contents": "Select a notes folder to use Sync.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
+        "when": "!noteRoot.hasRoot"
+      },
+      {
+        "view": "noteRoot.sync",
+        "contents": "Keep your notes in sync with an online service to back them up and to open them on another computer. GitHub is available now, with no git and no other app needed.\n[Connect to a Sync Service](command:noteRoot.syncConnect)\nNothing is sent until you press Push.",
+        "when": "noteRoot.hasRoot && !noteRoot.syncConnected"
+      }
+    ],
+    "commands": [
+      {
+        "command": "noteRoot.focus",
+        "title": "NoteRoot: Open Sidebar"
+      },
+      {
+        "command": "noteRoot.selectRootFolder",
+        "title": "NoteRoot: Select Notes Folder"
+      },
+      {
+        "command": "noteRoot.changeRootFolder",
+        "title": "NoteRoot: Change Notes Folder"
+      },
+      {
+        "command": "noteRoot.recreateRootFolder",
+        "title": "NoteRoot: Create Notes Folder Again"
+      },
+      {
+        "command": "noteRoot.revealRootInOS",
+        "title": "NoteRoot: Reveal Root Folder in OS"
+      },
+      {
+        "command": "noteRoot.openRootInNewWindow",
+        "title": "NoteRoot: Open Notes Folder in New Window"
+      },
+      {
+        "command": "noteRoot.openConfigFile",
+        "title": "NoteRoot: Open Config File"
+      },
+      {
+        "command": "noteRoot.showLogs",
+        "title": "NoteRoot: Show Logs"
+      },
+      {
+        "command": "noteRoot.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "noteRoot.sortBy",
+        "title": "NoteRoot: Sort Notes By…"
+      },
+      {
+        "command": "noteRoot.expandAll",
+        "title": "Expand All",
+        "icon": "$(expand-all)"
+      },
+      {
+        "command": "noteRoot.collapseAll",
+        "title": "Collapse All",
+        "icon": "$(collapse-all)"
+      },
+      {
+        "command": "noteRoot.newFile",
+        "title": "New File",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "noteRoot.newFolder",
+        "title": "New Folder",
+        "icon": "$(new-folder)"
+      },
+      {
+        "command": "noteRoot.undo",
+        "title": "NoteRoot: Undo Last Rename or Move"
+      },
+      {
+        "command": "noteRoot.duplicate",
+        "title": "Duplicate"
+      },
+      {
+        "command": "noteRoot.excludeItem",
+        "title": "Hide from NoteRoot"
+      },
+      {
+        "command": "noteRoot.includeItem",
+        "title": "Show in NoteRoot Again"
+      },
+      {
+        "command": "noteRoot.excludeFromTagging",
+        "title": "Don't Auto-Tag"
+      },
+      {
+        "command": "noteRoot.includeInTagging",
+        "title": "Auto-Tag Again"
+      },
+      {
+        "command": "noteRoot.showHiddenItems",
+        "title": "Show Hidden Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.hideHiddenItems",
+        "title": "Hide Hidden Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.rename",
+        "title": "Rename"
+      },
+      {
+        "command": "noteRoot.delete",
+        "title": "Delete"
+      },
+      {
+        "command": "noteRoot.revealInOS",
+        "title": "Reveal in OS"
+      },
+      {
+        "command": "noteRoot.copyPath",
+        "title": "Copy Path"
+      },
+      {
+        "command": "noteRoot.copyRelativePath",
+        "title": "Copy Relative Path"
+      },
+      {
+        "command": "noteRoot.openToSide",
+        "title": "Open to the Side"
+      },
+      {
+        "command": "noteRoot.openPreviewToSide",
+        "title": "Open Preview to the Side"
+      },
+      {
+        "command": "noteRoot.focusQuickNote",
+        "title": "NoteRoot: Focus Quick Note"
+      },
+      {
+        "command": "noteRoot.addSelectionToQuickNote",
+        "title": "Add Selection to Quick Note",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.search",
+        "title": "NoteRoot: Search Notes",
+        "icon": "$(search)"
+      },
+      {
+        "command": "noteRoot.clearRecent",
+        "title": "NoteRoot: Clear Recent Notes",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "noteRoot.removeFromRecent",
+        "title": "Remove from Recent"
+      },
+      {
+        "command": "noteRoot.revealInTree",
+        "title": "Reveal in Notes Tree"
+      },
+      {
+        "command": "noteRoot.editSetting",
+        "title": "Change Setting…"
+      },
+      {
+        "command": "noteRoot.resetSetting",
+        "title": "Reset to Default"
+      },
+      {
+        "command": "noteRoot.showSettingInEditor",
+        "title": "Show in Settings Editor"
+      },
+      {
+        "command": "noteRoot.openAllSettings",
+        "title": "NoteRoot: Open Settings Editor",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "noteRoot.syncConnect",
+        "title": "NoteRoot: Connect to a Sync Service"
+      },
+      {
+        "command": "noteRoot.syncChangeRepository",
+        "title": "NoteRoot: Change Sync Target"
+      },
+      {
+        "command": "noteRoot.syncDisconnect",
+        "title": "NoteRoot: Disconnect from Sync"
+      },
+      {
+        "command": "noteRoot.syncHistory",
+        "title": "NoteRoot: Choose How Sync Keeps Commits"
+      },
+      {
+        "command": "noteRoot.syncHidden",
+        "title": "NoteRoot: Choose Whether Sync Includes Hidden Files"
+      },
+      {
+        "command": "noteRoot.syncShowChange",
+        "title": "NoteRoot: Show Change"
+      },
+      {
+        "command": "noteRoot.syncForgetKey",
+        "title": "NoteRoot: Forget the Saved Master Key"
+      },
+      {
+        "command": "noteRoot.syncChangeKey",
+        "title": "NoteRoot: Change the Master Key"
+      },
+      {
+        "command": "noteRoot.syncEncryptRepository",
+        "title": "NoteRoot: Encrypt the Notes of This Repository"
+      },
+      {
+        "command": "noteRoot.syncRefresh",
+        "title": "NoteRoot: Check Sync for Changes",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "noteRoot.syncPush",
+        "title": "NoteRoot: Push Notes",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "noteRoot.syncPull",
+        "title": "NoteRoot: Pull Notes",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "noteRoot.enableSyncAutoCheck",
+        "title": "NoteRoot: Check Sync for New Changes Automatically (turn on)"
+      },
+      {
+        "command": "noteRoot.disableSyncAutoCheck",
+        "title": "NoteRoot: Check Sync for New Changes Automatically (turn off)"
+      },
+      {
+        "command": "noteRoot.encryptNote",
+        "title": "Encrypt…"
+      },
+      {
+        "command": "noteRoot.decryptView",
+        "title": "Decrypt for Viewing…"
+      },
+      {
+        "command": "noteRoot.decryptNote",
+        "title": "Decrypt Permanently…"
+      },
+      {
+        "command": "noteRoot.tagNote",
+        "title": "Run Tagging"
+      },
+      {
+        "command": "noteRoot.tagCurrentNote",
+        "title": "NoteRoot: Run Tagging on This Note"
+      },
+      {
+        "command": "noteRoot.insertHeader",
+        "title": "Insert Header"
+      },
+      {
+        "command": "noteRoot.insertHeaderCurrentNote",
+        "title": "Header",
+        "category": "NoteRoot: Add"
+      },
+      {
+        "command": "noteRoot.addDateAndTags",
+        "title": "Date and Tags",
+        "category": "NoteRoot: Add"
+      },
+      {
+        "command": "noteRoot.moveTo",
+        "title": "Choose Note…",
+        "category": "NoteRoot: Move to"
+      },
+      {
+        "command": "noteRoot.moveToQuickNote",
+        "title": "Quick Note",
+        "category": "NoteRoot: Move to"
+      },
+      {
+        "command": "noteRoot.pinNote",
+        "title": "Pin Note"
+      },
+      {
+        "command": "noteRoot.unpinNote",
+        "title": "Unpin Note"
+      },
+      {
+        "command": "noteRoot.quickNoteOptions",
+        "title": "NoteRoot: Quick Note Options…"
+      },
+      {
+        "command": "noteRoot.changeQuickNoteFile",
+        "title": "NoteRoot: Change Quick Note File",
+        "icon": "$(file-symlink-file)"
+      },
+      {
+        "command": "noteRoot.pasteAndSave",
+        "title": "NoteRoot: Paste and Save to Quick Note"
+      },
+      {
+        "command": "noteRoot.enableAdvanced",
+        "title": "NoteRoot: Show Advanced Quick Note Options",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "noteRoot.disableAdvanced",
+        "title": "NoteRoot: Hide Advanced Quick Note Options",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "noteRoot.changeCategoryFile",
+        "title": "NoteRoot: Change Category File"
+      },
+      {
+        "command": "noteRoot.manageLabels",
+        "title": "NoteRoot: Manage Categories and Tags",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "noteRoot.enableAutoCategories",
+        "title": "NoteRoot: Auto Create Category for Every File (turn on)",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "noteRoot.disableAutoCategories",
+        "title": "NoteRoot: Auto Create Category for Every File (turn off)",
+        "icon": "$(settings)"
+      },
+      {
+        "command": "noteRoot.enableAutoTagPatterns",
+        "title": "NoteRoot: Auto Create Tag from Pattern (turn on)",
+        "icon": "$(regex)"
+      },
+      {
+        "command": "noteRoot.disableAutoTagPatterns",
+        "title": "NoteRoot: Auto Create Tag from Pattern (turn off)",
+        "icon": "$(regex)"
+      },
+      {
+        "command": "noteRoot.manageTagPatterns",
+        "title": "NoteRoot: Tag Patterns…"
+      },
+      {
+        "command": "noteRoot.addTagPattern",
+        "title": "NoteRoot: Add Tag Pattern…",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noteRoot.editTagPattern",
+        "title": "Change Pattern…"
+      },
+      {
+        "command": "noteRoot.deleteTagPattern",
+        "title": "Delete Pattern…"
+      },
+      {
+        "command": "noteRoot.createCategory",
+        "title": "NoteRoot: Create Category…",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noteRoot.createTag",
+        "title": "NoteRoot: Create Tag…",
+        "icon": "$(add)"
+      },
+      {
+        "command": "noteRoot.renameLabel",
+        "title": "Rename…"
+      },
+      {
+        "command": "noteRoot.deleteLabel",
+        "title": "Delete…"
+      },
+      {
+        "command": "noteRoot.changeLabelFile",
+        "title": "Change File…"
+      },
+      {
+        "command": "noteRoot.setLabelKeyword",
+        "title": "Set Keyword…"
+      },
+      {
+        "command": "noteRoot.removeLabelFile",
+        "title": "Remove File"
+      },
+      {
+        "command": "noteRoot.removeLabelKeyword",
+        "title": "Remove Keyword"
+      },
+      {
+        "command": "noteRoot.refreshLabels",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "noteRoot.openAtLine",
+        "title": "Open at Line"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "noteRoot.search",
+          "when": "view == noteRoot.tree && noteRoot.state == ready",
+          "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.newFile",
+          "when": "view == noteRoot.tree && noteRoot.state != noRoot && noteRoot.state != missing",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.newFolder",
+          "when": "view == noteRoot.tree && noteRoot.state != noRoot && noteRoot.state != missing",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.refresh",
+          "when": "view == noteRoot.tree",
+          "group": "navigation@3"
+        },
+        {
+          "command": "noteRoot.expandAll",
+          "when": "view == noteRoot.tree && noteRoot.state == ready",
+          "group": "navigation@4"
+        },
+        {
+          "command": "noteRoot.collapseAll",
+          "when": "view == noteRoot.tree && noteRoot.state == ready",
+          "group": "navigation@5"
+        },
+        {
+          "command": "noteRoot.clearRecent",
+          "when": "view == noteRoot.recent",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.changeQuickNoteFile",
+          "when": "view == noteRoot.quickNote",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.enableAdvanced",
+          "when": "view == noteRoot.quickNote && !noteRoot.advanced",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.disableAdvanced",
+          "when": "view == noteRoot.quickNote && noteRoot.advanced",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.manageLabels",
+          "when": "view == noteRoot.quickNote && noteRoot.advanced",
+          "group": "9_options@2"
+        },
+        {
+          "command": "noteRoot.showHiddenItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && !noteRoot.showHidden",
+          "group": "1_view@1"
+        },
+        {
+          "command": "noteRoot.hideHiddenItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && noteRoot.showHidden",
+          "group": "1_view@1"
+        },
+        {
+          "command": "noteRoot.changeRootFolder",
+          "when": "view == noteRoot.tree",
+          "group": "2_folder@1"
+        },
+        {
+          "command": "noteRoot.openConfigFile",
+          "when": "view == noteRoot.settings && noteRoot.hasRoot",
+          "group": "2_files@1"
+        },
+        {
+          "command": "noteRoot.revealRootInOS",
+          "when": "view == noteRoot.tree && noteRoot.hasRoot",
+          "group": "2_folder@2"
+        },
+        {
+          "command": "noteRoot.openRootInNewWindow",
+          "when": "view == noteRoot.tree && noteRoot.hasRoot",
+          "group": "2_folder@3"
+        },
+        {
+          "command": "noteRoot.showLogs",
+          "when": "view == noteRoot.settings",
+          "group": "2_files@2"
+        },
+        {
+          "command": "noteRoot.sortBy",
+          "when": "view == noteRoot.settings && noteRoot.state == ready",
+          "group": "1_notes@1"
+        },
+        {
+          "command": "noteRoot.undo",
+          "when": "view == noteRoot.tree && noteRoot.state == ready",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "noteRoot.quickNoteOptions",
+          "when": "view == noteRoot.quickNote",
+          "group": "9_options@1"
+        },
+        {
+          "command": "noteRoot.refreshLabels",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.enableAutoCategories",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot && !noteRoot.autoCategories",
+          "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.disableAutoCategories",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot && noteRoot.autoCategories",
+          "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.enableAutoTagPatterns",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot && !noteRoot.autoTagPatterns",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.disableAutoTagPatterns",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot && noteRoot.autoTagPatterns",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.openAllSettings",
+          "when": "view == noteRoot.settings",
+          "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.syncRefresh",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.syncPull",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "navigation@1"
+        },
+        {
+          "command": "noteRoot.syncPush",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.syncChangeRepository",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "1_repository@1"
+        },
+        {
+          "command": "noteRoot.syncDisconnect",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "1_repository@2"
+        },
+        {
+          "command": "noteRoot.syncHistory",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "1_repository@3"
+        },
+        {
+          "command": "noteRoot.syncHidden",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected",
+          "group": "1_repository@4"
+        },
+        {
+          "command": "noteRoot.syncEncryptRepository",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected && !noteRoot.syncEncrypted",
+          "group": "3_encryption@1"
+        },
+        {
+          "command": "noteRoot.syncChangeKey",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncEncrypted",
+          "group": "3_encryption@2"
+        },
+        {
+          "command": "noteRoot.syncForgetKey",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncEncrypted",
+          "group": "3_encryption@3"
+        },
+        {
+          "command": "noteRoot.enableSyncAutoCheck",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected && !noteRoot.syncAutoCheck",
+          "group": "2_check@1"
+        },
+        {
+          "command": "noteRoot.disableSyncAutoCheck",
+          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncAutoCheck",
+          "group": "2_check@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "noteRoot.encryptNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.decryptView",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.decryptNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.recreateRootFolder",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.newFile",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.newFolder",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.refresh",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.collapseAll",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.rename",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.delete",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.revealInOS",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.copyPath",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.copyRelativePath",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.openToSide",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.openPreviewToSide",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.addSelectionToQuickNote",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "noteRoot.search",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.removeFromRecent",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.revealInTree",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.clearRecent",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.changeQuickNoteFile",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.pasteAndSave",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.enableAdvanced",
+          "when": "!noteRoot.advanced"
+        },
+        {
+          "command": "noteRoot.disableAdvanced",
+          "when": "noteRoot.advanced"
+        },
+        {
+          "command": "noteRoot.changeCategoryFile",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.manageLabels",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.expandAll",
+          "when": "noteRoot.state == ready"
+        },
+        {
+          "command": "noteRoot.pinNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.unpinNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.sortBy",
+          "when": "noteRoot.state == ready"
+        },
+        {
+          "command": "noteRoot.duplicate",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.excludeItem",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.includeItem",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.excludeFromTagging",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.includeInTagging",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.undo",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.quickNoteOptions",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.createCategory",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.createTag",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.renameLabel",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.deleteLabel",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.changeLabelFile",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.refreshLabels",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.syncConnect",
+          "when": "noteRoot.hasRoot && !noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncChangeRepository",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncDisconnect",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncHistory",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncHidden",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncEncryptRepository",
+          "when": "noteRoot.syncConnected && !noteRoot.syncEncrypted"
+        },
+        {
+          "command": "noteRoot.syncChangeKey",
+          "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
+        },
+        {
+          "command": "noteRoot.syncForgetKey",
+          "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
+        },
+        {
+          "command": "noteRoot.syncShowChange",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.syncRefresh",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncPush",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncPull",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.enableSyncAutoCheck",
+          "when": "noteRoot.syncConnected && !noteRoot.syncAutoCheck"
+        },
+        {
+          "command": "noteRoot.disableSyncAutoCheck",
+          "when": "noteRoot.syncConnected && noteRoot.syncAutoCheck"
+        },
+        {
+          "command": "noteRoot.openAtLine",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.enableAutoCategories",
+          "when": "noteRoot.hasRoot && !noteRoot.autoCategories"
+        },
+        {
+          "command": "noteRoot.disableAutoCategories",
+          "when": "noteRoot.hasRoot && noteRoot.autoCategories"
+        },
+        {
+          "command": "noteRoot.setLabelKeyword",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.removeLabelFile",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.removeLabelKeyword",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.enableAutoTagPatterns",
+          "when": "noteRoot.hasRoot && !noteRoot.autoTagPatterns"
+        },
+        {
+          "command": "noteRoot.disableAutoTagPatterns",
+          "when": "noteRoot.hasRoot && noteRoot.autoTagPatterns"
+        },
+        {
+          "command": "noteRoot.manageTagPatterns",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.addTagPattern",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.editTagPattern",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.deleteTagPattern",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.openRootInNewWindow",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.tagNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.tagCurrentNote",
+          "when": "noteRoot.hasRoot && editorIsOpen"
+        },
+        {
+          "command": "noteRoot.insertHeader",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.insertHeaderCurrentNote",
+          "when": "noteRoot.activeInRoot"
+        },
+        {
+          "command": "noteRoot.addDateAndTags",
+          "when": "noteRoot.activeInRoot && !editorReadonly"
+        },
+        {
+          "command": "noteRoot.moveTo",
+          "when": "noteRoot.activeInRoot && editorHasSelection"
+        },
+        {
+          "command": "noteRoot.editSetting",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.resetSetting",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.showSettingInEditor",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.openAllSettings"
+        },
+        {
+          "command": "noteRoot.moveToQuickNote",
+          "when": "noteRoot.activeInRoot && editorHasSelection"
+        },
+        {
+          "command": "noteRoot.showHiddenItems",
+          "when": "noteRoot.hasRoot && !noteRoot.showHidden"
+        },
+        {
+          "command": "noteRoot.hideHiddenItems",
+          "when": "noteRoot.hasRoot && noteRoot.showHidden"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "noteRoot.newFile",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.folder/",
+          "group": "1_new@1"
+        },
+        {
+          "command": "noteRoot.newFolder",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.folder/",
+          "group": "1_new@2"
+        },
+        {
+          "command": "noteRoot.openToSide",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file/",
+          "group": "2_open@1"
+        },
+        {
+          "command": "noteRoot.openPreviewToSide",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file\\.md/",
+          "group": "2_open@2"
+        },
+        {
+          "command": "noteRoot.duplicate",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot.(file|folder)/",
+          "group": "4_modify@0"
+        },
+        {
+          "command": "noteRoot.rename",
+          "when": "view == noteRoot.tree",
+          "group": "4_modify@1"
+        },
+        {
+          "command": "noteRoot.delete",
+          "when": "view == noteRoot.tree",
+          "group": "4_modify@2"
+        },
+        {
+          "command": "noteRoot.pinNote",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot.file/",
+          "group": "2_open@4"
+        },
+        {
+          "command": "noteRoot.revealInTree",
+          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "group": "1_navigate@1"
+        },
+        {
+          "command": "noteRoot.removeFromRecent",
+          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "group": "2_modify@1"
+        },
+        {
+          "command": "noteRoot.pinNote",
+          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "group": "2_modify@0"
+        },
+        {
+          "command": "noteRoot.revealInTree",
+          "when": "view == noteRoot.recent && viewItem == noteRoot.pinnedItem",
+          "group": "1_navigate@1"
+        },
+        {
+          "command": "noteRoot.unpinNote",
+          "when": "view == noteRoot.recent && viewItem == noteRoot.pinnedItem",
+          "group": "2_modify@1"
+        },
+        {
+          "command": "noteRoot.createCategory",
+          "when": "view == noteRoot.labels && viewItem == noteRoot.labelGroup.category",
+          "group": "inline@1"
+        },
+        {
+          "command": "noteRoot.createTag",
+          "when": "view == noteRoot.labels && viewItem == noteRoot.labelGroup.tag",
+          "group": "inline@1"
+        },
+        {
+          "command": "noteRoot.changeLabelFile",
+          "when": "view == noteRoot.labels && viewItem =~ /^noteRoot\\.label\\.category/",
+          "group": "1_modify@1"
+        },
+        {
+          "command": "noteRoot.setLabelKeyword",
+          "when": "view == noteRoot.labels && viewItem =~ /^noteRoot\\.label\\.(category|tag)/",
+          "group": "1_modify@3"
+        },
+        {
+          "command": "noteRoot.renameLabel",
+          "when": "view == noteRoot.labels && viewItem =~ /^noteRoot\\.label\\.(category|tag)/",
+          "group": "1_modify@5"
+        },
+        {
+          "command": "noteRoot.deleteLabel",
+          "when": "view == noteRoot.labels && viewItem =~ /^noteRoot\\.label\\.(category|tag)/",
+          "group": "1_modify@6"
+        },
+        {
+          "command": "noteRoot.removeLabelFile",
+          "when": "view == noteRoot.labels && viewItem =~ /^noteRoot\\.label\\.category\\.hasFile/",
+          "group": "1_modify@2"
+        },
+        {
+          "command": "noteRoot.removeLabelKeyword",
+          "when": "view == noteRoot.labels && viewItem =~ /\\.hasKeyword$/",
+          "group": "1_modify@4"
+        },
+        {
+          "command": "noteRoot.addTagPattern",
+          "when": "view == noteRoot.labels && viewItem == noteRoot.patternGroup",
+          "group": "inline@1"
+        },
+        {
+          "command": "noteRoot.editTagPattern",
+          "when": "view == noteRoot.labels && viewItem == noteRoot.tagPattern",
+          "group": "1_modify@1"
+        },
+        {
+          "command": "noteRoot.deleteTagPattern",
+          "when": "view == noteRoot.labels && viewItem == noteRoot.tagPattern",
+          "group": "1_modify@2"
+        },
+        {
+          "command": "noteRoot.editSetting",
+          "when": "view == noteRoot.settings && viewItem =~ /^noteRoot\\.setting\\b/ && viewItem != noteRoot.settingGroup",
+          "group": "1_edit@1"
+        },
+        {
+          "command": "noteRoot.resetSetting",
+          "when": "view == noteRoot.settings && viewItem =~ /\\.changed$/",
+          "group": "1_edit@2"
+        },
+        {
+          "command": "noteRoot.showSettingInEditor",
+          "when": "view == noteRoot.settings && viewItem =~ /^noteRoot\\.setting\\.key/",
+          "group": "2_show@1"
+        },
+        {
+          "command": "noteRoot.tagNote",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.locked)/",
+          "group": "2_open@5"
+        },
+        {
+          "command": "noteRoot.insertHeader",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file(?!.*\\.locked)/",
+          "group": "2_open@6"
+        },
+        {
+          "command": "noteRoot.excludeFromTagging",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.(notag|locked))/",
+          "group": "6_exclude@2"
+        },
+        {
+          "command": "noteRoot.includeInTagging",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.locked).*\\.notag/",
+          "group": "6_exclude@2"
+        },
+        {
+          "command": "noteRoot.revealInOS",
+          "when": "view == noteRoot.tree",
+          "group": "2_open@3"
+        },
+        {
+          "command": "noteRoot.copyPath",
+          "when": "view == noteRoot.tree",
+          "group": "3_copy@1"
+        },
+        {
+          "command": "noteRoot.copyRelativePath",
+          "when": "view == noteRoot.tree",
+          "group": "3_copy@2"
+        },
+        {
+          "command": "noteRoot.excludeItem",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.hidden)/",
+          "group": "6_exclude@1"
+        },
+        {
+          "command": "noteRoot.includeItem",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder).*\\.hidden/",
+          "group": "6_exclude@1"
+        },
+        {
+          "command": "noteRoot.encryptNote",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file(?!.*\\.(locked|quickNote))/",
+          "group": "7_encrypt@1"
+        },
+        {
+          "command": "noteRoot.decryptView",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file.*\\.locked/",
+          "group": "7_encrypt@1"
+        },
+        {
+          "command": "noteRoot.decryptNote",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file.*\\.locked/",
+          "group": "7_encrypt@2"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "noteRoot.editorMenu",
+          "when": "editorHasSelection || noteRoot.activeInRoot && !editorReadonly",
+          "group": "9_cutcopypaste@98"
+        }
+      ],
+      "noteRoot.moveToMenu": [
+        {
+          "command": "noteRoot.moveToQuickNote",
+          "group": "1_move@1"
+        },
+        {
+          "command": "noteRoot.moveTo",
+          "group": "1_move@2"
+        }
+      ],
+      "noteRoot.addMenu": [
+        {
+          "command": "noteRoot.addDateAndTags",
+          "group": "1_add@1"
+        },
+        {
+          "command": "noteRoot.insertHeaderCurrentNote",
+          "group": "1_add@2"
+        }
+      ],
+      "noteRoot.editorMenu": [
+        {
+          "command": "noteRoot.addSelectionToQuickNote",
+          "when": "editorHasSelection",
+          "group": "1_quick@1"
+        },
+        {
+          "submenu": "noteRoot.moveToMenu",
+          "when": "noteRoot.activeInRoot && editorHasSelection && !editorReadonly",
+          "group": "2_move@1"
+        },
+        {
+          "submenu": "noteRoot.addMenu",
+          "when": "noteRoot.activeInRoot && !editorReadonly",
+          "group": "3_add@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "NoteRoot",
+      "properties": {
+        "noteRoot.rootPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Absolute path of the folder where your notes are stored. Use **NoteRoot: Select Notes Folder** to choose it."
+        },
+        "noteRoot.defaultExtension": {
+          "type": "string",
+          "default": ".md",
+          "pattern": "^\\.[A-Za-z0-9_-]+$",
+          "scope": "window",
+          "markdownDescription": "Extension added to new files when the name has no extension (must start with a dot). This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.quickNoteFile": {
+          "type": "string",
+          "default": "quick-notes.md",
+          "scope": "window",
+          "markdownDescription": "File (relative to the notes folder) where Quick Notes are appended. Use **NoteRoot: Change Quick Note File** or the button in the title bar of the Quick Note panel to pick it. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.quickNoteTimestampFormat": {
+          "type": "string",
+          "default": "YYYY-MM-DD HH:mm",
+          "scope": "window",
+          "markdownDescription": "Format of the heading added above each Quick Note. Tokens: `YYYY`, `MM`, `DD`, `HH`, `mm`, `ss`. Leave empty for no timestamp. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.excludePatterns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            ".DS_Store",
+            "Thumbs.db",
+            ".git",
+            ".noteroot",
+            ".claude",
+            ".vscode"
+          ],
+          "scope": "window",
+          "markdownDescription": "Glob patterns of files and folders hidden from the NoteRoot tree. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.largeFileThresholdMB": {
+          "type": "number",
+          "default": 5,
+          "minimum": 0,
+          "scope": "window",
+          "markdownDescription": "Ask for confirmation before opening files larger than this size (in MB). Use `0` to disable."
+        },
+        "noteRoot.sortOrder": {
+          "type": "string",
+          "enum": [
+            "name",
+            "modified"
+          ],
+          "enumDescriptions": [
+            "Alphabetical, numbers in natural order.",
+            "Newest first, by the date a file or folder was last modified."
+          ],
+          "default": "name",
+          "scope": "window",
+          "markdownDescription": "How the notes tree orders the items inside a folder. Folders always come first. Use **NoteRoot: Sort Notes By…** or the `...` menu of the Notes view to change it. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.quickNotePosition": {
+          "type": "string",
+          "enum": [
+            "end",
+            "start"
+          ],
+          "enumDescriptions": [
+            "Each new Quick Note is added at the end of the file.",
+            "Each new Quick Note goes at the start of the file, above the older ones (after a front matter block, if there is one)."
+          ],
+          "default": "end",
+          "scope": "window",
+          "markdownDescription": "Where a new Quick Note goes in its file. Use **NoteRoot: Quick Note Options…** or the `...` menu of the Quick Note panel to change it. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.quickNoteHeadingLevel": {
+          "type": "string",
+          "enum": [
+            "#",
+            "##",
+            "###",
+            "####",
+            "plain"
+          ],
+          "enumDescriptions": [
+            "A heading of level 1.",
+            "A heading of level 2.",
+            "A heading of level 3.",
+            "A heading of level 4.",
+            "Only the date and time on its own line, without a Markdown heading."
+          ],
+          "default": "##",
+          "scope": "window",
+          "markdownDescription": "How the date and time above each Quick Note is written. It has no effect when `noteRoot.quickNoteTimestampFormat` is empty. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.quickNoteTagLine": {
+          "type": "string",
+          "default": "**Tags:** {tags}",
+          "scope": "window",
+          "markdownDescription": "The line that carries the tags of a Quick Note (written between the heading and the text; a note without tags gets it empty when the template has text of its own). `{tags}` is replaced by the tags, for example `#ab-12312 #ab-222`. Examples: `{tags}` (only the tags), `Tags: {tags}`, `**Tags:** {tags}`, `#### Tags: {tags}`. It must be one line with `{tags}` in it. Use **NoteRoot: Quick Note Options…** to pick one. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        },
+        "noteRoot.tagOnSave": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "markdownDescription": "When you save a note of the notes folder in the editor (Ctrl+S, not the automatic save), run the tagging on the notes you changed: the tags it gets by itself (keywords and tag patterns) are written in its tag line. In a file of Quick Notes only the entries you changed are tagged. Off by default. See **NoteRoot: Run Tagging on This Note**. This is the default for all notes folders: a value saved with a notes folder (`custom.folderSettings` in its `.noteroot/config.json`, set from the Settings panel) wins."
+        }
+      }
+    },
+    "keybindings": [
+      {
+        "command": "noteRoot.rename",
+        "key": "f2",
+        "when": "focusedView == noteRoot.tree"
+      },
+      {
+        "command": "noteRoot.delete",
+        "key": "delete",
+        "when": "focusedView == noteRoot.tree"
+      },
+      {
+        "command": "noteRoot.delete",
+        "key": "cmd+backspace",
+        "mac": "cmd+backspace",
+        "when": "focusedView == noteRoot.tree && isMac"
+      },
+      {
+        "command": "noteRoot.undo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "focusedView == noteRoot.tree"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "noteRoot.gettingStarted",
+        "title": "Get Started with NoteRoot",
+        "description": "Set up your notes folder and write your first note.",
+        "steps": [
+          {
+            "id": "chooseFolder",
+            "title": "Choose your notes folder",
+            "description": "Pick the folder where all your notes will live.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
+            "completionEvents": [
+              "onSettingChanged:noteRoot.rootPath"
+            ],
+            "media": {
+              "markdown": "media/walkthrough/choose-folder.md"
+            }
+          },
+          {
+            "id": "createNote",
+            "title": "Create your first note",
+            "description": "Create a note in your folder.\n[New File](command:noteRoot.newFile)",
+            "completionEvents": [
+              "onCommand:noteRoot.newFile"
+            ],
+            "media": {
+              "markdown": "media/walkthrough/create-note.md"
+            }
+          },
+          {
+            "id": "quickNote",
+            "title": "Try Quick Note",
+            "description": "Jot something down fast from the sidebar.\n[Focus Quick Note](command:noteRoot.focusQuickNote)",
+            "completionEvents": [
+              "onCommand:noteRoot.focusQuickNote"
+            ],
+            "media": {
+              "markdown": "media/walkthrough/quick-note.md"
+            }
+          },
+          {
+            "id": "tags",
+            "title": "Sort notes with categories and tags",
+            "description": "Switch on the Advanced mode to send a Quick Note to another file and to add tags.\n[Turn On Advanced Options](command:noteRoot.enableAdvanced)",
+            "completionEvents": [
+              "onCommand:noteRoot.enableAdvanced"
+            ],
+            "media": {
+              "markdown": "media/walkthrough/tags.md"
+            }
+          },
+          {
+            "id": "sync",
+            "title": "Keep your notes in sync",
+            "description": "Push your notes to GitHub and pull them on another computer.\n[Connect to a Sync Service](command:noteRoot.syncConnect)",
+            "completionEvents": [
+              "onCommand:noteRoot.syncConnect"
+            ],
+            "media": {
+              "markdown": "media/walkthrough/sync.md"
+            }
+          }
+        ]
+      }
+    ],
+    "submenus": [
+      {
+        "id": "noteRoot.moveToMenu",
+        "label": "Move to"
+      },
+      {
+        "id": "noteRoot.addMenu",
+        "label": "Add"
+      },
+      {
+        "id": "noteRoot.editorMenu",
+        "label": "NoteRoot"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run check-types && npm run lint && node esbuild.js --production",
+    "compile": "npm run check-types && npm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "24.x",
+    "@types/vscode": "^1.140.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^10.5.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.9.9",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.61.1"
+  }
+}

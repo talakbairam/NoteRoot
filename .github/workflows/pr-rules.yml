@@ -1,0 +1,51 @@
+name: PR rules
+
+# The rules for pull requests, checked on every one:
+# - A pull request goes to develop. Only the owner opens one to master, and only from develop.
+# - A pull request to develop has exactly one commit, and its message is one line. Dependabot is the exception.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  pr-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.base_ref }}
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.repository_owner }}
+          COMMITS: ${{ github.event.pull_request.commits }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+
+          if [ "$BASE" = "master" ]; then
+            [ "$HEAD_REPO" = "$REPO" ] && [ "$HEAD_REF" = "develop" ] || fail "A pull request to master must come from develop."
+            [ "$AUTHOR" = "$OWNER" ] || fail "Only the owner opens a pull request to master."
+          elif [ "$BASE" = "develop" ]; then
+            # Dependabot writes a title and a body, so the one-line rule does not apply to its pull requests.
+            if [ "$AUTHOR" = "dependabot[bot]" ]; then
+              echo "OK (Dependabot)"
+              exit 0
+            fi
+            [ "$COMMITS" = "1" ] || fail "A pull request to develop must have exactly one commit (this one has $COMMITS). Squash your commits."
+            message=$(gh api "repos/$REPO/pulls/$PR/commits" --jq '.[0].commit.message')
+            [ -n "$message" ] || fail "The commit message is empty."
+            case "$message" in
+              *$'\n'*) fail "The commit message must be one line." ;;
+            esac
+          else
+            fail "Open the pull request against develop."
+          fi
+          echo "OK"

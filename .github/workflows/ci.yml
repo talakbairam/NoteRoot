@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+
+permissions:
+  contents: read
+
+# A new push to the same branch or pull request stops the run that is still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The checks run on Linux and on Windows (paths and line endings differ there).
+  checks:
+    name: checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Format
+        run: npm run format:check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Compile
+        run: npm run compile
+
+      # The extension has no runtime dependencies, so this must stay clean.
+      - name: Audit runtime dependencies
+        if: runner.os == 'Linux'
+        run: npm audit --omit=dev
+
+      # Smoke check: the extension must package. The runtime has no dependencies to bundle.
+      - name: Package
+        run: npx vsce package --no-dependencies --out noteroot.vsix
+
+      # The package holds only the bundle, media/, README, CHANGELOG, LICENSE and package.json, and stays small
+      # (the screenshots in docs/ must never end up in it).
+      - name: Check the package contents
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          unexpected=$(unzip -Z1 noteroot.vsix | grep -v '/$' | grep -v -E '^(\[Content_Types\]\.xml|extension\.vsixmanifest|extension/(package\.json|readme\.md|changelog\.md|LICENSE\.txt|dist/extension\.js|media/.+))$' || true)
+          if [ -n "$unexpected" ]; then
+            echo "::error::Unexpected files in the package:"
+            echo "$unexpected"
+            exit 1
+          fi
+          size=$(stat -c %s noteroot.vsix)
+          if [ "$size" -gt 1048576 ]; then
+            echo "::error::The package is $size bytes (limit 1048576)."
+            exit 1
+          fi
+          echo "Package OK ($size bytes)"
+
+  # The branch rules require a check named "build": this one passes only when every run above passed.
+  build:
+    needs: checks
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: All checks passed
+        env:
+          RESULT: ${{ needs.checks.result }}
+        run: |
+          if [ "$RESULT" != "success" ]; then
+            echo "::error::The checks did not pass ($RESULT)."
+            exit 1
+          fi
