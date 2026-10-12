@@ -1,0 +1,9 @@
+# Ship only the bundle, media/, README, CHANGELOG, LICENSE and package.json.
+# Source maps stay out: the production build has none, and an old dev map must not slip in.
+**
+!dist/extension.js
+!media/**
+!README.md
+!CHANGELOG.md
+!LICENSE
+!package.json

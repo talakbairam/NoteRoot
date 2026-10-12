@@ -1,0 +1,378 @@
+/* Theme variables only, so every light, dark and high contrast theme works. */
+
+body {
+	/* Some air around the box, instead of running edge to edge in the sidebar. */
+	padding: 8px 14px 14px;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}
+
+/* On a wide sidebar the box stops growing, so it stays easy to scan. */
+.note {
+	max-width: 480px;
+}
+
+textarea {
+	display: block;
+	width: 100%;
+	box-sizing: border-box;
+	padding: 6px 8px;
+	/* A fixed height that the user changes by dragging the corner (quickNote.js remembers it). */
+	height: 110px;
+	min-height: 60px;
+	resize: vertical;
+	overflow-y: auto;
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+	border-radius: 4px;
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+	line-height: 1.45;
+}
+
+textarea::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+textarea:read-only {
+	opacity: 0.7;
+}
+
+textarea:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: 2px;
+}
+
+.footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 8px 10px;
+	margin-top: 8px;
+}
+
+.message {
+	margin-top: 8px;
+}
+
+/* No notes folder: the box is replaced by the reason and a button, like the welcome text of the Notes view. */
+.root-problem {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 8px;
+	margin: 4px 0;
+	color: var(--vscode-foreground);
+}
+
+.root-problem p {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.root-problem[hidden] {
+	display: none;
+}
+
+.note.no-root > textarea,
+.note.no-root > .advanced,
+.note.no-root > .footer,
+.note.no-root > .message,
+.note.no-root > #root-action {
+	display: none;
+}
+
+/* Save and Open sits to the left of Save: a small button with an icon only. */
+.save-group {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 5px 7px;
+}
+
+.icon svg {
+	display: block;
+}
+
+#status {
+	display: block;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-size: 0.92em;
+}
+
+#status:empty {
+	display: none;
+}
+
+#status.error {
+	color: var(--vscode-errorForeground);
+}
+
+button {
+	flex: 0 0 auto;
+	padding: 4px 14px;
+	white-space: nowrap;
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+	border-radius: 4px;
+	font-family: inherit;
+	font-size: inherit;
+	cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+	background: var(--vscode-button-hoverBackground);
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+button.secondary {
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+button.secondary:hover:not(:disabled) {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+#root-action {
+	margin-top: 8px;
+}
+
+/* ----- Advanced mode: a dropdown between the box and the buttons ----- */
+
+/* The dropdowns sit side by side and stack when the sidebar is too narrow for two. */
+.advanced {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+/* display: flex would otherwise win over the hidden attribute. */
+.advanced[hidden] {
+	display: none;
+}
+
+/* The panel of the chosen tags, one chip each, under the dropdowns. It has a fixed height that the user changes by dragging
+   the corner (quickNote.js remembers it); more chips than fit scroll. */
+.chips {
+	display: flex;
+	flex: 1 1 100%;
+	flex-wrap: wrap;
+	align-content: flex-start;
+	gap: 4px;
+	min-width: 0;
+	box-sizing: border-box;
+	height: 32px;
+	min-height: 28px;
+	overflow-y: auto;
+	resize: vertical;
+	padding: 4px;
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+	border-radius: 4px;
+}
+
+.chips:empty::before {
+	content: attr(data-empty);
+	padding: 1px 4px;
+	color: var(--vscode-input-placeholderForeground);
+	font-size: 0.92em;
+}
+
+.chip {
+	display: inline-flex;
+	align-items: center;
+	max-width: 100%;
+	padding: 0 2px 0 8px;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	border-radius: 10px;
+	font-size: 0.92em;
+}
+
+/* A tag the note will get by itself: the same chip, but faded and with a dashed edge, and no button. */
+.chip.auto {
+	padding-right: 8px;
+	opacity: 0.65;
+	outline: 1px dashed var(--vscode-contrastBorder, currentColor);
+	outline-offset: -1px;
+}
+
+.chip-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chip-remove {
+	width: 18px;
+	height: 18px;
+	margin-left: 2px;
+	padding: 0;
+	color: inherit;
+	background: transparent;
+	border: none;
+	border-radius: 50%;
+	line-height: 1;
+	cursor: pointer;
+}
+
+.chip-remove:hover {
+	background: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.3));
+}
+
+.chip-remove:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+/* Combo box: a text box with a list under it, coloured like the other VS Code inputs and dropdowns. */
+.combo {
+	position: relative;
+	flex: 1 1 110px;
+	min-width: 0;
+}
+
+.combo input {
+	width: 100%;
+	box-sizing: border-box;
+	padding: 4px 44px 4px 8px;
+	color: var(--vscode-input-foreground, var(--vscode-foreground));
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+	border-radius: 4px;
+	font-family: inherit;
+	font-size: inherit;
+	text-overflow: ellipsis;
+}
+
+.combo input::placeholder {
+	color: var(--vscode-input-placeholderForeground);
+}
+
+.combo input:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+/* The small buttons inside the box on the right: clear (category only) and open the list. */
+.combo-clear,
+.combo-toggle {
+	position: absolute;
+	top: 50%;
+	height: 20px;
+	padding: 0;
+	color: var(--vscode-foreground);
+	background: transparent;
+	border: none;
+	border-radius: 3px;
+	line-height: 1;
+	cursor: pointer;
+	transform: translateY(-50%);
+}
+
+.combo-clear {
+	right: 24px;
+	width: 18px;
+}
+
+.combo-toggle {
+	right: 4px;
+	width: 20px;
+}
+
+.combo-clear[hidden] {
+	display: none;
+}
+
+.combo-clear:hover,
+.combo-toggle:hover {
+	background: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.3));
+}
+
+/* The little arrow of the open button, drawn with borders so it follows the text colour. */
+.combo-toggle::before {
+	display: block;
+	width: 5px;
+	height: 5px;
+	margin: 0 auto 2px;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	content: '';
+	transform: rotate(45deg);
+}
+
+/* border-box: the maximum height set by quickNote.js includes the padding and the border. */
+.combo-list {
+	box-sizing: border-box;
+	position: absolute;
+	z-index: 10;
+	top: 100%;
+	right: 0;
+	left: 0;
+	max-height: 180px;
+	margin: 2px 0 0;
+	padding: 2px 0;
+	overflow-y: auto;
+	list-style: none;
+	color: var(--vscode-dropdown-foreground, var(--vscode-foreground));
+	background: var(--vscode-dropdown-listBackground, var(--vscode-dropdown-background, var(--vscode-input-background)));
+	border: 1px solid var(--vscode-dropdown-border, var(--vscode-widget-border, var(--vscode-input-border, transparent)));
+	border-radius: 4px;
+	box-shadow: 0 2px 8px var(--vscode-widget-shadow, rgba(0, 0, 0, 0.3));
+}
+
+.combo-list[hidden] {
+	display: none;
+}
+
+/* Opens upwards when there is more room above the box (quickNote.js decides). */
+.combo-list.up {
+	top: auto;
+	bottom: 100%;
+	margin: 0 0 2px;
+}
+
+.combo-option {
+	padding: 3px 8px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.combo-option:hover,
+.combo-option.active {
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+}
+
+.combo-option.chosen {
+	font-weight: bold;
+}
+
+.combo-option.create {
+	color: var(--vscode-textLink-foreground, var(--vscode-foreground));
+	font-style: italic;
+}

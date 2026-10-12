@@ -1,0 +1,3 @@
+# Text files are stored with LF in the repository and checked out with CRLF on every system,
+# so the CRLF rule of Prettier (.prettierrc) and .editorconfig also holds on the CI runner (Linux).
+* text=auto eol=crlf
