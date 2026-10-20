@@ -708,6 +708,12 @@ export const Strings = {
     decrypted: (name: string, count: number): string =>
       count === 1 ? `${name} is decrypted.` : `${count} notes are decrypted.`,
     working: "Working…",
+    copyTitle: "Copy this note as encrypted text",
+    copied: (name: string): string =>
+      `The encrypted text of ${name} is on the clipboard. The note itself was not changed.`,
+    clipboardTitle: "Decrypt the text on the clipboard",
+    clipboardNotEncrypted: "The clipboard does not hold encrypted NoteRoot text.",
+    clipboardName: "Decrypted text.md",
     isLink: (name: string): string =>
       `${name} is a link, so it was left as it is (writing would change the file it points to).`,
     cannotWriteInto: "An encrypted note cannot be written to. Decrypt it first.",

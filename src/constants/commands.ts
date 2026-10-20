@@ -22,6 +22,8 @@ export const Commands = {
   encryptNote: "noteRoot.encryptNote",
   decryptView: "noteRoot.decryptView",
   decryptNote: "noteRoot.decryptNote",
+  copyEncrypted: "noteRoot.copyEncrypted",
+  decryptClipboard: "noteRoot.decryptClipboard",
   excludeFromTagging: "noteRoot.excludeFromTagging",
   includeInTagging: "noteRoot.includeInTagging",
   showHiddenItems: "noteRoot.showHiddenItems",

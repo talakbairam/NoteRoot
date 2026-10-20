@@ -377,6 +377,14 @@
         "title": "Decrypt Permanently…"
       },
       {
+        "command": "noteRoot.copyEncrypted",
+        "title": "Copy as Encrypted Text…"
+      },
+      {
+        "command": "noteRoot.decryptClipboard",
+        "title": "NoteRoot: Decrypt Text from Clipboard…"
+      },
+      {
         "command": "noteRoot.tagNote",
         "title": "Run Tagging"
       },
@@ -632,6 +640,11 @@
           "group": "1_edit@1"
         },
         {
+          "command": "noteRoot.decryptClipboard",
+          "when": "view == noteRoot.tree",
+          "group": "3_encrypt@1"
+        },
+        {
           "command": "noteRoot.quickNoteOptions",
           "when": "view == noteRoot.quickNote",
           "group": "9_options@1"
@@ -738,6 +751,10 @@
         },
         {
           "command": "noteRoot.decryptNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.copyEncrypted",
           "when": "false"
         },
         {
@@ -1245,6 +1262,11 @@
           "command": "noteRoot.encryptNote",
           "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file(?!.*\\.(locked|quickNote))/",
           "group": "7_encrypt@1"
+        },
+        {
+          "command": "noteRoot.copyEncrypted",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file(?!.*\\.locked)/",
+          "group": "7_encrypt@3"
         },
         {
           "command": "noteRoot.decryptView",
