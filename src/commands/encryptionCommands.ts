@@ -3,7 +3,7 @@ import { Commands } from "../constants/commands";
 import { Strings } from "../constants/strings";
 import { DecryptedViewService } from "../services/DecryptedViewService";
 import { Logger } from "../services/Logger";
-import { MIN_KEY_LENGTH, isEncryptedName } from "../services/NoteCrypto";
+import { MIN_KEY_LENGTH, isEncryptedName, looksEncrypted } from "../services/NoteCrypto";
 import { NoteEncryptionService } from "../services/NoteEncryptionService";
 import { PathGuard } from "../services/PathGuard";
 import { NoteItem } from "../tree/NoteItem";
@@ -165,6 +165,51 @@ export function registerEncryptionCommands(deps: EncryptionCommandDependencies):
       await report(done, failed, text.decrypted);
     }
   );
+
+  // The note is not changed: its encrypted text goes to the clipboard, to be sent to someone who has the key.
+  registerSafeCommand(
+    context,
+    logger,
+    Commands.copyEncrypted,
+    async (clicked?: unknown, selected?: unknown) => {
+      const item = filesOf(clicked, selected).find((entry) => !isEncryptedName(entry.name));
+      if (!item) {
+        return;
+      }
+      const key = await askNewKey(text.copyTitle);
+      if (key === undefined) {
+        return;
+      }
+      const encrypted = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: text.working },
+        () => encryptionService.encryptedTextOf(item.uri, key)
+      );
+      await vscode.env.clipboard.writeText(encrypted);
+      showStatus(text.copied(item.name));
+    }
+  );
+
+  // The other side: encrypted text from the clipboard is shown for reading (a read-only document, nothing is written).
+  registerSafeCommand(context, logger, Commands.decryptClipboard, async () => {
+    const clipboard = await vscode.env.clipboard.readText();
+    if (!looksEncrypted(`${clipboard.trim()}\n`)) {
+      void vscode.window.showWarningMessage(text.clipboardNotEncrypted);
+      return;
+    }
+    const key = await askKey(text.clipboardTitle);
+    if (key === undefined) {
+      return;
+    }
+    try {
+      const plain = await encryptionService.decryptText(clipboard, key);
+      const document = await vscode.workspace.openTextDocument(
+        decryptedView.add(text.clipboardName, plain)
+      );
+      await vscode.window.showTextDocument(document, { preview: false });
+    } catch (error) {
+      reportError(logger, "Decrypt clipboard", error);
+    }
+  });
 
   // A click on an encrypted note in the tree runs this too (the argument is then the address of the file).
   registerSafeCommand(context, logger, Commands.decryptView, async (target?: unknown) => {

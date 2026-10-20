@@ -78,6 +78,8 @@ Open the **Actions** panel and choose **Connect to a Sync Service**. VS Code sig
 
 Right-click a note and choose **Encrypt…**, then type a master key twice. The note is renamed `name.ext.enc` and shows a lock. Click it (or **Decrypt for Viewing…**) to read it in a read-only editor that exists only in memory; **Decrypt Permanently…** restores the note.
 
+To send a note to someone, right-click it and choose **Copy as Encrypted Text…**: the encrypted text goes to the clipboard and the note stays as it is. The other person copies it and runs **NoteRoot: Decrypt Text from Clipboard…** (Command Palette, or the `...` menu of the Notes view; they need NoteRoot and the key).
+
 - AES-256-GCM, with a key from your master key by scrypt. Tampering is detected. The file name and size stay visible.
 - **The key is never stored and cannot be recovered. If you forget it, the note is lost.** Old copies (Local History, Git, backups) may still hold the plain text.
 - Without the extension, `tools/decrypt.js` (Node.js) or `tools/decrypt.ps1` (PowerShell on Windows) decrypt a note. No independent security review yet.
