@@ -2,7 +2,7 @@
   "name": "noteroot",
   "displayName": "NoteRoot",
   "description": "Notes in a folder you choose: a notes tree, a Quick Note box, tags and categories, and optional encrypted sync to GitHub.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "talakbairam",
   "license": "GPL-3.0",
   "repository": {

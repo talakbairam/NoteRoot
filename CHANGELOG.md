@@ -4,6 +4,20 @@ All notable changes to NoteRoot are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-10-21
+
+### Added
+
+- **Settings page** (**NoteRoot: Open Settings Page**, or the pencil button in the title bar of the Settings view): every setting in a tab of the editor, grouped, with a search box and an **Only changed** filter. Each setting shows its default and where its value comes from (this notes folder or your settings), has a **Reset** link and its own editor: a dropdown, a checkbox, a text box, or one line per entry for a list. A change is checked and saved at once, with the same rules as the Settings view.
+- **Tags & Categories page** (**NoteRoot: Open Tags & Categories Page**, or the pencil button in the title bar of the Tags & Categories view): the categories with their files and keywords, the categories of every file, the tags with the notes that use them, the tag patterns and what they found, and the two switches of the automatic features. New, Rename, Keyword, Change File, Remove File and Delete ask the same questions as the view, and a note or a file opens from its link.
+
+- **Copy as Encrypted Text** (right-click a note) puts the encrypted text of a note on the clipboard without changing the file, and **Decrypt Text from Clipboard** (Command Palette, or the `...` menu of the Notes view) asks for the key and shows the decrypted text in a read-only tab. Both use the same encryption as **Encrypt…**.
+
+### Changed
+
+- Development tools updated (eslint, typescript-eslint, prettier, vsce and the Node types). Nothing changes for the user.
+- The pages of the Quick Note and of the two new tabs moved from `media/` to a folder of their own, `webview/`. Nothing changes for the user.
+
 ## [0.1.0] - 2026-10-12
 
 First release.
