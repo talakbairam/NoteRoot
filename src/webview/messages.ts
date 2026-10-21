@@ -1,4 +1,4 @@
-/** Message contract between the extension and the Quick Note webview. Keep media/quickNote.js in sync. */
+/** Message contract between the extension and the Quick Note webview. Keep webview/quickNote/quickNote.js in sync. */
 
 /** Longest note or draft accepted. The textarea enforces the same limit with `maxlength`. */
 export const MAX_TEXT_LENGTH = 1_000_000;

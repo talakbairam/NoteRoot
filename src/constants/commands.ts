@@ -76,6 +76,8 @@ export const Commands = {
   resetSetting: "noteRoot.resetSetting",
   showSettingInEditor: "noteRoot.showSettingInEditor",
   openAllSettings: "noteRoot.openAllSettings",
+  openSettingsPage: "noteRoot.openSettingsPage",
+  openLabelsPage: "noteRoot.openLabelsPage",
   tagNote: "noteRoot.tagNote",
   tagCurrentNote: "noteRoot.tagCurrentNote",
   insertHeader: "noteRoot.insertHeader",

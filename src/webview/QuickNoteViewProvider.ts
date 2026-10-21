@@ -75,9 +75,9 @@ export class QuickNoteViewProvider implements vscode.WebviewViewProvider, vscode
   resolveWebviewView(webviewView: vscode.WebviewView): void {
     this.view = webviewView;
     this.ready = false;
-    const mediaRoot = vscode.Uri.joinPath(this.extensionUri, "media");
-    webviewView.webview.options = { enableScripts: true, localResourceRoots: [mediaRoot] };
-    webviewView.webview.html = this.renderHtml(webviewView.webview, mediaRoot);
+    const pagesRoot = vscode.Uri.joinPath(this.extensionUri, "webview");
+    webviewView.webview.options = { enableScripts: true, localResourceRoots: [pagesRoot] };
+    webviewView.webview.html = this.renderHtml(webviewView.webview, pagesRoot);
     webviewView.description = this.quickNoteService.getTargetPath();
 
     webviewView.webview.onDidReceiveMessage((raw: unknown) => {
@@ -391,10 +391,14 @@ export class QuickNoteViewProvider implements vscode.WebviewViewProvider, vscode
     }
   }
 
-  private renderHtml(webview: vscode.Webview, mediaRoot: vscode.Uri): string {
+  private renderHtml(webview: vscode.Webview, pagesRoot: vscode.Uri): string {
     const nonce = randomBytes(16).toString("base64");
-    const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, "quickNote.css"));
-    const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(mediaRoot, "quickNote.js"));
+    const styleUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(pagesRoot, "quickNote", "quickNote.css")
+    );
+    const scriptUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(pagesRoot, "quickNote", "quickNote.js")
+    );
     const text = Strings.quickNote;
     return `<!DOCTYPE html>
 <html lang="en">

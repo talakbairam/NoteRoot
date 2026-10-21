@@ -72,6 +72,13 @@ NoteRoot has no automated tests, so check these by hand before a release. Press 
 - [ ] Every row opens the right editor (choice, text, number, list, switch, action) and rejects bad input with a message.
 - [ ] **Reset to Default** appears only on changed rows; the folder value is removed first, a second reset removes the user value. Rows show **· this folder** when the notes folder has its own value.
 - [ ] A change made in the VS Code Settings editor shows up in the panel at once.
+- [ ] The pencil button of the Settings view opens **NoteRoot Settings** in an editor tab (a second click shows the same tab). Every kind of row can be changed there (select, checkbox, text box on Enter or leaving it, list with **Apply** or Ctrl+Enter, **Change…** for the folder and the Quick Note file); a bad value shows a message under the row and is not saved; **Reset** and the search box and **Only changed** work; a change made in the Settings view shows up in the page and the other way round.
+
+## Tags & Categories page
+
+- [ ] The pencil button of the Tags & Categories view opens **NoteRoot Tags & Categories** in an editor tab (a second click shows the same tab). Categories, tags, patterns and the **Every file** list match the view; the counts appear a moment after the lists.
+- [ ] New, Rename, Keyword, Change file, Remove file / keyword and Delete ask the same questions as the view and the page updates at once; the two switches turn the automatic features on and off; a note, a category file and a tag of a pattern open from their links.
+- [ ] A change made in the view, in the Quick Note panel or in the config file shows up in the page; with no notes folder the page offers **Select Notes Folder**.
 
 ## Encryption
 

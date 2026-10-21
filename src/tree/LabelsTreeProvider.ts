@@ -409,6 +409,16 @@ export class LabelsTreeProvider implements vscode.TreeDataProvider<LabelNode>, v
     );
   }
 
+  /** The notes of every tag, from the scan that the tree also uses (kept until the next refresh). */
+  tagNotes(): Promise<Map<string, TagNote[]>> {
+    return this.currentScan();
+  }
+
+  /** What every tag pattern made in the notes, from the same kept scan. */
+  patternMatches(): Promise<Map<string, PatternTagFound[]>> {
+    return this.currentPatternScan();
+  }
+
   /** What the patterns made in the notes, kept until the next refresh like the scan of the tags. */
   private async currentPatternScan(
     known?: readonly string[]
