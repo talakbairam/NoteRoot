@@ -164,14 +164,19 @@ export function registerTagPatternCommands(deps: TagPatternCommandDependencies):
   registerSafeCommand(context, logger, Commands.addTagPattern, async () => {
     await perform({ type: "add" }, await labelService.getTagPatterns());
   });
+  // The Tags & Categories page runs the same two commands with the pattern as text.
+  const patternOf = (item: unknown): string | undefined =>
+    item instanceof PatternNode ? item.pattern : typeof item === "string" ? item : undefined;
   registerSafeCommand(context, logger, Commands.editTagPattern, async (item?: unknown) => {
-    if (item instanceof PatternNode) {
-      await perform({ type: "edit", pattern: item.pattern }, await labelService.getTagPatterns());
+    const pattern = patternOf(item);
+    if (pattern !== undefined) {
+      await perform({ type: "edit", pattern }, await labelService.getTagPatterns());
     }
   });
   registerSafeCommand(context, logger, Commands.deleteTagPattern, async (item?: unknown) => {
-    if (item instanceof PatternNode) {
-      await perform({ type: "delete", pattern: item.pattern }, await labelService.getTagPatterns());
+    const pattern = patternOf(item);
+    if (pattern !== undefined) {
+      await perform({ type: "delete", pattern }, await labelService.getTagPatterns());
     }
   });
 

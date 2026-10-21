@@ -7,11 +7,13 @@ import {
   findSettingDef,
   isChanged,
   resetSetting,
+  typedValue,
   writeSwitch,
   type SettingDef,
   type SettingsContext,
 } from "../services/SettingsCatalog";
 import { SettingItem, choiceLabel } from "../tree/SettingsTreeProvider";
+import type { SettingsPageProvider } from "../webview/SettingsPageProvider";
 import { registerSafeCommand, reportError } from "./safe";
 import { showStatus } from "../util/status";
 
@@ -19,6 +21,7 @@ export interface SettingsCommandDependencies {
   context: vscode.ExtensionContext;
   logger: Logger;
   settingsContext: SettingsContext;
+  settingsPage: SettingsPageProvider;
 }
 
 /** What the user asked for in the list of a setting. */
@@ -49,7 +52,7 @@ const listButtons: Record<"edit" | "delete", ListButton> = {
 
 /** The commands of the Settings view: change a setting, take it back to its default, show it in the Settings editor. */
 export function registerSettingsCommands(deps: SettingsCommandDependencies): void {
-  const { context, logger, settingsContext } = deps;
+  const { context, logger, settingsContext, settingsPage } = deps;
   const { settings } = settingsContext;
   const text = Strings.settingsView;
 
@@ -96,13 +99,7 @@ export function registerSettingsCommands(deps: SettingsCommandDependencies): voi
     if (typed === undefined || def.key === undefined) {
       return;
     }
-    // A date format may have spaces in it on purpose; everything else is taken as it is typed, without the spaces around it.
-    const next =
-      def.kind === "number"
-        ? (def.parse?.(typed) ?? Number(typed))
-        : def.id === "quickNoteTimestampFormat"
-          ? typed
-          : typed.trim();
+    const next = typedValue(def, typed);
     if (next !== def.read(settingsContext)) {
       await settings.setValue(def.key, next);
       say(text.updated(text.items[def.id].label));
@@ -227,6 +224,10 @@ export function registerSettingsCommands(deps: SettingsCommandDependencies): voi
         `@id:${SETTINGS_SECTION}.${def.key}`
       );
     }
+  });
+
+  registerSafeCommand(context, logger, Commands.openSettingsPage, () => {
+    settingsPage.open();
   });
 
   registerSafeCommand(context, logger, Commands.openAllSettings, async () => {

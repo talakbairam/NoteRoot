@@ -2,7 +2,7 @@
   "name": "noteroot",
   "displayName": "NoteRoot",
   "description": "Notes in a folder you choose: a notes tree, a Quick Note box, tags and categories, and optional encrypted sync to GitHub.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "talakbairam",
   "license": "GPL-3.0",
   "repository": {
@@ -306,6 +306,11 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "noteRoot.openSettingsPage",
+        "title": "NoteRoot: Open Settings Page",
+        "icon": "$(edit)"
+      },
+      {
         "command": "noteRoot.syncConnect",
         "title": "NoteRoot: Connect to a Sync Service"
       },
@@ -375,6 +380,14 @@
       {
         "command": "noteRoot.decryptNote",
         "title": "Decrypt Permanently…"
+      },
+      {
+        "command": "noteRoot.copyEncrypted",
+        "title": "Copy as Encrypted Text…"
+      },
+      {
+        "command": "noteRoot.decryptClipboard",
+        "title": "NoteRoot: Decrypt Text from Clipboard…"
       },
       {
         "command": "noteRoot.tagNote",
@@ -525,6 +538,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "noteRoot.openLabelsPage",
+        "title": "NoteRoot: Open Tags & Categories Page",
+        "icon": "$(edit)"
+      },
+      {
         "command": "noteRoot.openAtLine",
         "title": "Open at Line"
       }
@@ -632,6 +650,11 @@
           "group": "1_edit@1"
         },
         {
+          "command": "noteRoot.decryptClipboard",
+          "when": "view == noteRoot.tree",
+          "group": "3_encrypt@1"
+        },
+        {
           "command": "noteRoot.quickNoteOptions",
           "when": "view == noteRoot.quickNote",
           "group": "9_options@1"
@@ -640,6 +663,11 @@
           "command": "noteRoot.refreshLabels",
           "when": "view == noteRoot.labels && noteRoot.hasRoot",
           "group": "navigation@2"
+        },
+        {
+          "command": "noteRoot.openLabelsPage",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot",
+          "group": "navigation@3"
         },
         {
           "command": "noteRoot.enableAutoCategories",
@@ -662,9 +690,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "noteRoot.openAllSettings",
+          "command": "noteRoot.openSettingsPage",
           "when": "view == noteRoot.settings",
           "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.openAllSettings",
+          "when": "view == noteRoot.settings",
+          "group": "navigation@1"
         },
         {
           "command": "noteRoot.syncRefresh",
@@ -738,6 +771,10 @@
         },
         {
           "command": "noteRoot.decryptNote",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.copyEncrypted",
           "when": "false"
         },
         {
@@ -1247,6 +1284,11 @@
           "group": "7_encrypt@1"
         },
         {
+          "command": "noteRoot.copyEncrypted",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file(?!.*\\.locked)/",
+          "group": "7_encrypt@3"
+        },
+        {
           "command": "noteRoot.decryptView",
           "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file.*\\.locked/",
           "group": "7_encrypt@1"
@@ -1531,14 +1573,14 @@
     "package": "vsce package"
   },
   "devDependencies": {
-    "@types/node": "24.x",
+    "@types/node": "26.x",
     "@types/vscode": "^1.140.0",
-    "@vscode/vsce": "^3.0.0",
+    "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.1",
-    "eslint": "^10.5.0",
+    "eslint": "^10.13.0",
     "npm-run-all": "^4.1.5",
-    "prettier": "^3.9.9",
+    "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1"
+    "typescript-eslint": "^8.71.2"
   }
 }

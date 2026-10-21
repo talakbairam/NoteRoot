@@ -54,6 +54,8 @@ Your notes are plain files in a folder you pick. NoteRoot is built so you can tr
 
 - **Sync.** Push your notes to GitHub and pull them on another computer, with no git and no other app. It can be encrypted. See below.
 - **Settings panel.** Every setting is in one panel, with its value: click a row to change it, right-click to reset it or show it in the VS Code Settings editor. Settings that belong to your notes are saved in the notes folder, so they travel with it (and with Sync); those are not in the VS Code Settings editor. The panel has four groups:
+- **Settings page.** The pencil button of the Settings panel opens all settings in an editor tab, with search, an *Only changed* filter, defaults and Reset.
+- **Tags & Categories page.** The pencil button of the Tags & Categories panel opens everything in an editor tab: categories, tags, tag patterns, the categories of every file and the two automatic switches, with their notes and files.
   - **Notes:** the notes folder, sort order, default extension, hidden files and folders, the large file warning, the note header and which file types count as notes.
   - **Quick Note:** the Quick Note file, where new notes go (start or end), the heading and date format above each note, the line with the tags, and *Tag when saving*.
   - **Tags & Categories:** the Advanced options, *Category for every file* and *Tag from pattern* switches (and whether they start on), and the files and folders that are never tagged automatically.
@@ -77,6 +79,8 @@ Open the **Actions** panel and choose **Connect to a Sync Service**. VS Code sig
 ## Encrypt a note
 
 Right-click a note and choose **Encrypt…**, then type a master key twice. The note is renamed `name.ext.enc` and shows a lock. Click it (or **Decrypt for Viewing…**) to read it in a read-only editor that exists only in memory; **Decrypt Permanently…** restores the note.
+
+To send a note to someone, right-click it and choose **Copy as Encrypted Text…**: the encrypted text goes to the clipboard and the note stays as it is. The other person copies it and runs **NoteRoot: Decrypt Text from Clipboard…** (Command Palette, or the `...` menu of the Notes view; they need NoteRoot and the key).
 
 - AES-256-GCM, with a key from your master key by scrypt. Tampering is detected. The file name and size stay visible.
 - **The key is never stored and cannot be recovered. If you forget it, the note is lost.** Old copies (Local History, Git, backups) may still hold the plain text.

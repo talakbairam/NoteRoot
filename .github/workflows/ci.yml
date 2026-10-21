@@ -52,13 +52,13 @@ jobs:
       - name: Package
         run: npx vsce package --no-dependencies --out noteroot.vsix
 
-      # The package holds only the bundle, media/, README, CHANGELOG, LICENSE and package.json, and stays small
+      # The package holds only the bundle, media/, webview/, README, CHANGELOG, LICENSE and package.json, and stays small
       # (the screenshots in docs/ must never end up in it).
       - name: Check the package contents
         if: runner.os == 'Linux'
         shell: bash
         run: |
-          unexpected=$(unzip -Z1 noteroot.vsix | grep -v '/$' | grep -v -E '^(\[Content_Types\]\.xml|extension\.vsixmanifest|extension/(package\.json|readme\.md|changelog\.md|LICENSE\.txt|dist/extension\.js|media/.+))$' || true)
+          unexpected=$(unzip -Z1 noteroot.vsix | grep -v '/$' | grep -v -E '^(\[Content_Types\]\.xml|extension\.vsixmanifest|extension/(package\.json|readme\.md|changelog\.md|LICENSE\.txt|dist/extension\.js|media/.+|webview/.+))$' || true)
           if [ -n "$unexpected" ]; then
             echo "::error::Unexpected files in the package:"
             echo "$unexpected"

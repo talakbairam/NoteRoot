@@ -122,6 +122,55 @@ export class NoteEncryptionService {
     return { name: decryptedName(name), text: decoder.decode(plain) };
   }
 
+  /**
+   * The text of a note, encrypted, to be copied and sent. Nothing is written: the note stays as it is. An open document is read
+   * from the editor, so what is seen is what is encrypted.
+   * @throws EncryptionRefusedError for a file that is not text, too big, or encrypted already.
+   */
+  async encryptedTextOf(uri: vscode.Uri, key: string): Promise<string> {
+    this.pathGuard.assertInsideRoot(uri, { allowRoot: false });
+    const name = basename(uri);
+    if (isEncryptedName(name)) {
+      throw new EncryptionRefusedError(Strings.encryption.alreadyEncrypted(name));
+    }
+    const open = vscode.workspace.textDocuments.find((doc) => this.pathGuard.isSame(doc.uri, uri));
+    let bytes: Uint8Array;
+    if (open) {
+      bytes = encoder.encode(open.getText());
+    } else {
+      const stat = await vscode.workspace.fs.stat(uri);
+      if (stat.size > MAX_ENCRYPTED_BYTES) {
+        throw new EncryptionRefusedError(Strings.encryption.tooBig(name));
+      }
+      bytes = await vscode.workspace.fs.readFile(uri);
+    }
+    if (bytes.length > MAX_ENCRYPTED_BYTES) {
+      throw new EncryptionRefusedError(Strings.encryption.tooBig(name));
+    }
+    if (bytes.subarray(0, 8000).includes(0)) {
+      throw new EncryptionRefusedError(Strings.encryption.notText(name));
+    }
+    if (looksEncrypted(decoder.decode(bytes.subarray(0, 64)))) {
+      throw new EncryptionRefusedError(Strings.encryption.alreadyEncrypted(name));
+    }
+    const encrypted = await encryptBytes(bytes, key);
+    const check = await decryptToBytes(encrypted, key, name);
+    if (check.length !== bytes.length || !check.every((byte, index) => byte === bytes[index])) {
+      throw new Error("The encrypted text did not decrypt to the original.");
+    }
+    this.logger.info(`Copied encrypted text of ${this.pathGuard.getRelativePath(uri) ?? name}.`);
+    return encrypted;
+  }
+
+  /**
+   * Decrypts encrypted text that did not come from a file (pasted or copied from a message). White space around it is ignored.
+   * @throws NotEncryptedError / WrongKeyError.
+   */
+  async decryptText(encrypted: string, key: string): Promise<string> {
+    const plain = await decryptToBytes(`${encrypted.trim()}\n`, key);
+    return decoder.decode(plain);
+  }
+
   private async decryptFile(uri: vscode.Uri, key: string, name: string): Promise<Uint8Array> {
     const stat = await vscode.workspace.fs.stat(uri);
     if (stat.size > MAX_ENCRYPTED_BYTES * 2) {
