@@ -419,6 +419,107 @@ export function findSettingDef(id: string): SettingDef | undefined {
   return SETTING_DEFS.find((def) => def.id === id);
 }
 
+/**
+ * The value a typed text stands for. A date format may have spaces in it on purpose; everything else is taken as it
+ * is typed, without the spaces around it.
+ */
+export function typedValue(def: SettingDef, typed: string): string | number {
+  if (def.kind === "number") {
+    return def.parse?.(typed) ?? Number(typed);
+  }
+  return def.id === "quickNoteTimestampFormat" ? typed : typed.trim();
+}
+
+/** The entries of a list as they are stored, or a message about the first one that is not valid. */
+function checkEntries(def: SettingDef, entries: readonly string[]): string[] | string {
+  const text = Strings.settingsView;
+  const normalized: string[] = [];
+  for (const entry of entries) {
+    if (entry.trim() === "") {
+      return text.listEntryEmpty;
+    }
+    const message = def.validateEntry?.(entry);
+    if (message !== undefined) {
+      return message;
+    }
+    const next = def.normalizeEntry?.(entry) ?? entry.trim();
+    if (!def.allowDuplicates && normalized.includes(next)) {
+      return text.listEntryDuplicate(next);
+    }
+    normalized.push(next);
+  }
+  return normalized;
+}
+
+/**
+ * Checks `value` (from a page, so not trusted) for the setting and saves it with the same rules as the Settings view.
+ * Returns a message when the value is not valid, and nothing when it was saved (or was the value already).
+ * Throws what `SettingsService.setValue` throws (a damaged config file, no notes folder).
+ */
+export async function applySettingEdit(
+  context: SettingsContext,
+  def: SettingDef,
+  value: unknown
+): Promise<string | undefined> {
+  const text = Strings.settingsView;
+  switch (def.kind) {
+    case "switch":
+    case "toggle": {
+      if (typeof value !== "boolean") {
+        return text.invalidChoice;
+      }
+      if (value !== (def.read(context) === true)) {
+        if (def.kind === "switch") {
+          await writeSwitch(context, def.id, value);
+        } else if (def.key !== undefined) {
+          await context.settings.setValue(def.key, value);
+        }
+      }
+      return undefined;
+    }
+    case "choice": {
+      if (typeof value !== "string" || !(def.choices ?? []).includes(value)) {
+        return text.invalidChoice;
+      }
+      if (value !== String(def.read(context)) && def.key !== undefined) {
+        await context.settings.setValue(def.key, value);
+      }
+      return undefined;
+    }
+    case "text":
+    case "number": {
+      if (typeof value !== "string" || def.key === undefined) {
+        return text.invalidChoice;
+      }
+      const message =
+        value === "" && !def.allowEmpty ? text.emptyNotAllowed : def.validate?.(value);
+      if (message !== undefined) {
+        return message;
+      }
+      const next = typedValue(def, value);
+      if (next !== def.read(context)) {
+        await context.settings.setValue(def.key, next);
+      }
+      return undefined;
+    }
+    case "list": {
+      if (!Array.isArray(value) || def.key === undefined) {
+        return text.invalidChoice;
+      }
+      const entries = checkEntries(def, value as string[]);
+      if (typeof entries === "string") {
+        return entries;
+      }
+      if (JSON.stringify(entries) !== JSON.stringify(def.read(context))) {
+        await context.settings.setValue(def.key, entries);
+      }
+      return undefined;
+    }
+    case "action":
+      return text.invalidChoice;
+  }
+}
+
 /** Switches the setting named `id` on or off. Only for `switch` settings. */
 export async function writeSwitch(
   context: SettingsContext,

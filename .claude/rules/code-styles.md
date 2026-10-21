@@ -13,7 +13,7 @@ Conventions for NoteRoot code. They describe how the code is written today. When
 
 ## Formatting
 
-Prettier decides (`.prettierrc`): 2 spaces, double quotes, semicolons, line width 100, trailing commas where ES5 allows them, CRLF line endings (`.editorconfig`). Prettier is a dev dependency: run `npm run format` after editing and before finishing (`npm run format:check` only checks). `media/` (the webview page) is not formatted by it. Always use braces for `if`, `for` and `while` (`curly` is a lint rule). Use `===` (`eqeqeq`).
+Prettier decides (`.prettierrc`): 2 spaces, double quotes, semicolons, line width 100, trailing commas where ES5 allows them, CRLF line endings (`.editorconfig`). Prettier is a dev dependency: run `npm run format` after editing and before finishing (`npm run format:check` only checks). `webview/` (the pages of the webviews: .js and .css) is not formatted by it. Always use braces for `if`, `for` and `while` (`curly` is a lint rule). Use `===` (`eqeqeq`).
 
 ## Naming
 

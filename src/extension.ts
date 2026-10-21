@@ -47,6 +47,8 @@ import { TreeNavigator } from "./tree/TreeNavigator";
 import { TreeStateController } from "./tree/TreeStateController";
 import { configureStatusMessages } from "./util/status";
 import { QuickNoteViewProvider } from "./webview/QuickNoteViewProvider";
+import { LabelsPageProvider } from "./webview/LabelsPageProvider";
+import { SettingsPageProvider } from "./webview/SettingsPageProvider";
 
 /** Wiring only: creates services and providers and registers them. No business logic here. */
 export function activate(context: vscode.ExtensionContext): void {
@@ -177,6 +179,7 @@ export function activate(context: vscode.ExtensionContext): void {
   syncProvider.attach(syncView);
   const settingsContext = { settings, advancedMode, autoCategories, autoTagPatterns };
   const settingsProvider = new SettingsTreeProvider(settingsContext);
+  const settingsPage = new SettingsPageProvider(context.extensionUri, settingsContext, logger);
   const labelsProvider = new LabelsTreeProvider(
     labelService,
     tagIndex,
@@ -185,6 +188,17 @@ export function activate(context: vscode.ExtensionContext): void {
     settings,
     autoCategories,
     autoTagPatterns,
+    logger
+  );
+  const labelsPage = new LabelsPageProvider(
+    context.extensionUri,
+    labelService,
+    labelsProvider,
+    rootService,
+    autoCategories,
+    autoTagPatterns,
+    advancedMode,
+    settings,
     logger
   );
   const quickNoteService = new QuickNoteService(
@@ -234,6 +248,8 @@ export function activate(context: vscode.ExtensionContext): void {
     syncProvider,
     syncView,
     settingsProvider,
+    settingsPage,
+    labelsPage,
     vscode.window.registerTreeDataProvider(ViewIds.settings, settingsProvider),
     vscode.window.registerTreeDataProvider(ViewIds.recent, pinnedRecentProvider),
     quickNoteService,
@@ -265,6 +281,7 @@ export function activate(context: vscode.ExtensionContext): void {
     recentService,
     pinnedService,
     labelsProvider,
+    labelsPage,
     autoCategories,
     autoTagPatterns,
     taggingService,
@@ -275,6 +292,7 @@ export function activate(context: vscode.ExtensionContext): void {
     excludeMatcher,
     noTagMatcher,
     settingsContext,
+    settingsPage,
     syncService,
     onlineView,
   });

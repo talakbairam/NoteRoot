@@ -306,6 +306,11 @@
         "icon": "$(settings-gear)"
       },
       {
+        "command": "noteRoot.openSettingsPage",
+        "title": "NoteRoot: Open Settings Page",
+        "icon": "$(edit)"
+      },
+      {
         "command": "noteRoot.syncConnect",
         "title": "NoteRoot: Connect to a Sync Service"
       },
@@ -533,6 +538,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "noteRoot.openLabelsPage",
+        "title": "NoteRoot: Open Tags & Categories Page",
+        "icon": "$(edit)"
+      },
+      {
         "command": "noteRoot.openAtLine",
         "title": "Open at Line"
       }
@@ -655,6 +665,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "noteRoot.openLabelsPage",
+          "when": "view == noteRoot.labels && noteRoot.hasRoot",
+          "group": "navigation@3"
+        },
+        {
           "command": "noteRoot.enableAutoCategories",
           "when": "view == noteRoot.labels && noteRoot.hasRoot && !noteRoot.autoCategories",
           "group": "navigation@0"
@@ -675,9 +690,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "noteRoot.openAllSettings",
+          "command": "noteRoot.openSettingsPage",
           "when": "view == noteRoot.settings",
           "group": "navigation@0"
+        },
+        {
+          "command": "noteRoot.openAllSettings",
+          "when": "view == noteRoot.settings",
+          "group": "navigation@1"
         },
         {
           "command": "noteRoot.syncRefresh",

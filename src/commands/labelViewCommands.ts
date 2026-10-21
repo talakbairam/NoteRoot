@@ -7,6 +7,7 @@ import { LabelService } from "../services/LabelService";
 import { Logger } from "../services/Logger";
 import { PathGuard } from "../services/PathGuard";
 import { LabelEntryItem, LabelsTreeProvider } from "../tree/LabelsTreeProvider";
+import type { LabelsPageProvider } from "../webview/LabelsPageProvider";
 import { askCategoryFile } from "./labelDialogs";
 import { performLabelAction } from "./labelCommands";
 import { registerSafeCommand } from "./safe";
@@ -18,14 +19,23 @@ export interface LabelViewCommandDependencies {
   pathGuard: PathGuard;
   labelService: LabelService;
   labelsProvider: LabelsTreeProvider;
+  labelsPage: LabelsPageProvider;
   autoCategories: AutoCategoryService;
   advancedMode: AdvancedModeService;
 }
 
 /** The commands of the Tags & Categories view. They share their questions with the Manage list. */
 export function registerLabelViewCommands(deps: LabelViewCommandDependencies): void {
-  const { context, logger, pathGuard, labelService, labelsProvider, autoCategories, advancedMode } =
-    deps;
+  const {
+    context,
+    logger,
+    pathGuard,
+    labelService,
+    labelsProvider,
+    labelsPage,
+    autoCategories,
+    advancedMode,
+  } = deps;
   const register = (id: string, handler: (...args: unknown[]) => unknown): void =>
     registerSafeCommand(context, logger, id, handler);
 
@@ -160,6 +170,7 @@ export function registerLabelViewCommands(deps: LabelViewCommandDependencies): v
   });
 
   register(Commands.refreshLabels, () => labelsProvider.refresh());
+  register(Commands.openLabelsPage, () => labelsPage.open());
 
   // A click on a note of a tag: open it with the tag selected.
   register(
