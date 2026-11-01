@@ -105,3 +105,36 @@ export class GitHubError extends NoteRootError {
 
 /** A sync action is refused: no repository chosen, another sync running, new commits to pull first... The message says why. */
 export class SyncRefusedError extends NoteRootError {}
+
+/** Google refused a request, could not be reached, or is not set up. The message says what the user can do about it. */
+export class GoogleError extends NoteRootError {
+  /** The HTTP status of the answer, when there was one. */
+  readonly status: number | undefined;
+
+  constructor(message: string, options?: { status?: number; cause?: unknown }) {
+    super(message, { cause: options?.cause });
+    this.status = options?.status;
+  }
+}
+
+/** GitLab refused a request, could not be reached, or the sign-in is missing. The message says what the user can do about it. */
+export class GitLabError extends NoteRootError {
+  /** The HTTP status of the answer, when there was one. */
+  readonly status: number | undefined;
+
+  constructor(message: string, options?: { status?: number; cause?: unknown }) {
+    super(message, { cause: options?.cause });
+    this.status = options?.status;
+  }
+}
+
+/** Dropbox refused a request, could not be reached, or is not set up. The message says what the user can do about it. */
+export class DropboxError extends NoteRootError {
+  /** The HTTP status of the answer, when there was one. */
+  readonly status: number | undefined;
+
+  constructor(message: string, options?: { status?: number; cause?: unknown }) {
+    super(message, { cause: options?.cause });
+    this.status = options?.status;
+  }
+}

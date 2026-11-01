@@ -12,6 +12,9 @@
 	const openKeys = new Set();
 	let searchBox = null;
 	let content = null;
+	let nav = null;
+	/** The section the page shows (kept when the tab is hidden and shown again). A search shows every section with a match. */
+	let current = (vscode.getState() || {}).section || 'categories';
 
 	function el(tag, className, text) {
 		const created = document.createElement(tag);
@@ -95,6 +98,19 @@
 		box.addEventListener('change', () => send({ type: 'switch', id, on: box.checked }));
 		wrapper.append(box, document.createTextNode(label));
 		return wrapper;
+	}
+
+	/** The line of a switch: what it does on the left, the switch on the right, in a frame like the other lines. */
+	function switchLine(hint, control) {
+		const item = el('div', 'item');
+		const head = el('div', 'item-head');
+		const main = el('div', 'item-main');
+		main.append(el('span', 'hint-text', hint));
+		const actions = el('div', 'actions');
+		actions.append(control);
+		head.append(main, actions);
+		item.append(head);
+		return framed([item]);
 	}
 
 	function addButton(label, message) {
@@ -217,6 +233,7 @@
 			box.append(el('p', 'empty', texts.everyFileNone));
 			return box;
 		}
+		const rows = [];
 		for (const entry of items) {
 			const row = el('div', 'item');
 			const head = el('div', 'item-head');
@@ -225,16 +242,34 @@
 			main.append(link(entry.path, () => send({ type: 'openFile', path: entry.path })));
 			head.append(main);
 			row.append(head);
-			box.append(row);
+			rows.push(row);
 		}
+		box.append(framed(rows));
 		if (truncated) {
 			box.append(el('p', 'hint', texts.everyFileMore));
 		}
 		return box;
 	}
 
+	/** The lines of a section in one frame; nothing (no empty frame) when there are none. */
+	function framed(rows) {
+		const frame = el('div', 'options');
+		frame.append(...rows);
+		frame.hidden = rows.length === 0;
+		return frame;
+	}
+
+	function choose(id) {
+		current = id;
+		vscode.setState({ section: id });
+		searchBox.value = '';
+		render();
+		window.scrollTo(0, 0);
+	}
+
 	function render() {
 		content.textContent = '';
+		nav.textContent = '';
 		if (model.problem) {
 			const problem = el('div', 'problem');
 			const button = el('button', 'secondary', texts.selectFolder);
@@ -245,7 +280,7 @@
 			return;
 		}
 		const needle = searchBox.value.trim().toLowerCase();
-		let shown = 0;
+		const built = [];
 
 		if (!model.advanced) {
 			content.append(el('p', 'notice', texts.needsAdvanced));
@@ -254,6 +289,7 @@
 		// Categories
 		const categories = model.categories.filter((c) => matches(needle, c.name, c.file, c.keyword));
 		const categorySection = el('section');
+		categorySection.dataset.section = 'categories';
 		categorySection.append(
 			sectionHead(
 				texts.categories,
@@ -264,68 +300,74 @@
 		if (model.categories.length === 0) {
 			categorySection.append(el('p', 'empty', texts.noCategories));
 		}
-		for (const category of categories) {
-			categorySection.append(categoryRow(category));
-		}
-		shown += categories.length;
-		content.append(categorySection);
+		categorySection.append(framed(categories.map(categoryRow)));
+		built.push({ id: 'categories', label: texts.categories, total: model.categories.length, matched: categories.length, section: categorySection });
 
 		// Every file
 		const everyFileSection = el('section');
+		everyFileSection.dataset.section = 'everyFile';
 		const everyFile = model.autoCategories
 			? model.everyFile.filter((entry) => matches(needle, entry.label, entry.path))
 			: [];
 		everyFileSection.append(
-			sectionHead(
-				texts.everyFile,
-				model.autoCategories ? model.everyFile.length : undefined,
-				switchBox(texts.everyFileSwitch, model.autoCategories, 'autoCategories')
-			),
-			el('p', 'hint', texts.everyFileHint)
+			sectionHead(texts.everyFile, model.autoCategories ? model.everyFile.length : undefined),
+			switchLine(texts.everyFileHint, switchBox(texts.everyFileSwitch, model.autoCategories, 'autoCategories'))
 		);
 		if (model.autoCategories) {
 			everyFileSection.append(everyFileRows(everyFile, model.everyFileTruncated));
 		}
-		shown += everyFile.length;
-		content.append(everyFileSection);
+		built.push({ id: 'everyFile', label: texts.everyFile, total: model.autoCategories ? model.everyFile.length : undefined, matched: everyFile.length, section: everyFileSection });
 
 		// Tags
 		const tags = model.tags.filter((t) => matches(needle, t.name, t.keyword));
 		const tagSection = el('section');
+		tagSection.dataset.section = 'tags';
 		tagSection.append(
 			sectionHead(texts.tags, model.tags.length, addButton(texts.newTag, { type: 'create', kind: 'tag' }))
 		);
 		if (model.tags.length === 0) {
 			tagSection.append(el('p', 'empty', texts.noTags));
 		}
-		for (const tag of tags) {
-			tagSection.append(tagRow(tag));
-		}
-		shown += tags.length;
-		content.append(tagSection);
+		tagSection.append(framed(tags.map(tagRow)));
+		built.push({ id: 'tags', label: texts.tags, total: model.tags.length, matched: tags.length, section: tagSection });
 
 		// Tag patterns
 		const patterns = model.patterns.filter((p) => matches(needle, p.pattern));
 		const patternSection = el('section');
+		patternSection.dataset.section = 'patterns';
 		patternSection.append(
-			sectionHead(
-				texts.patterns,
-				model.patterns.length,
-				switchBox(texts.patternsSwitch, model.autoTagPatterns, 'autoTagPatterns'),
-				addButton(texts.newPattern, { type: 'pattern', action: 'add' })
-			),
-			el('p', 'hint', texts.patternsHint)
+			sectionHead(texts.patterns, model.patterns.length, addButton(texts.newPattern, { type: 'pattern', action: 'add' })),
+			switchLine(texts.patternsHint, switchBox(texts.patternsSwitch, model.autoTagPatterns, 'autoTagPatterns'))
 		);
 		if (model.patterns.length === 0) {
 			patternSection.append(el('p', 'empty', texts.noPatterns));
 		}
-		for (const pattern of patterns) {
-			patternSection.append(patternRow(pattern));
-		}
-		shown += patterns.length;
-		content.append(patternSection);
+		patternSection.append(framed(patterns.map(patternRow)));
+		built.push({ id: 'patterns', label: texts.patterns, total: model.patterns.length, matched: patterns.length, section: patternSection });
 
-		if (needle !== '' && shown === 0) {
+		// Without a search the chosen section shows; with one, every section that has a match (and the menu lists only those).
+		const filtering = needle !== '';
+		if (!built.some((entry) => entry.id === current)) {
+			current = built[0].id;
+		}
+		for (const entry of built) {
+			const visible = filtering ? entry.matched > 0 : entry.id === current;
+			if (visible) {
+				content.append(entry.section);
+			}
+			if (!filtering || entry.matched > 0) {
+				const button = el('button', 'nav-item');
+				button.type = 'button';
+				button.append(document.createTextNode(entry.label));
+				if (entry.total !== undefined) {
+					button.append(el('span', 'nav-count', String(entry.total)));
+				}
+				button.setAttribute('aria-current', !filtering && entry.id === current ? 'true' : 'false');
+				button.addEventListener('click', () => choose(entry.id));
+				nav.append(button);
+			}
+		}
+		if (filtering && !built.some((entry) => entry.matched > 0)) {
 			content.append(el('p', 'empty', texts.noMatches));
 		}
 	}
@@ -346,8 +388,11 @@
 		refresh.type = 'button';
 		refresh.addEventListener('click', () => send({ type: 'refresh' }));
 		toolbar.append(searchBox, refresh);
-		content = el('div');
-		page.append(toolbar, content);
+		const layout = el('div', 'layout');
+		nav = el('nav', 'nav');
+		content = el('div', 'content');
+		layout.append(nav, content);
+		page.append(toolbar, layout);
 		render();
 	}
 

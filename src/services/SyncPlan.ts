@@ -89,6 +89,23 @@ export function planPull(base: FileState, local: FileState, remote: FileState): 
   return { apply, conflicts };
 }
 
+/**
+ * How many files a push would send, a pull would bring, and are in conflict. A file in conflict changed on both sides, so it is in
+ * `local` and in `remote` too, but it is neither a push nor a pull until it is resolved: it is counted once, as a conflict.
+ */
+export function countChanges(status: SyncStatus): {
+  push: number;
+  pull: number;
+  conflicts: number;
+} {
+  const conflicts = new Set(status.conflicts);
+  return {
+    push: status.local.filter((change) => !conflicts.has(change.path)).length,
+    pull: status.remote.filter((change) => !conflicts.has(change.path)).length,
+    conflicts: conflicts.size,
+  };
+}
+
 export interface SyncStatus {
   /** Changes made here since the last sync: what a push sends. */
   readonly local: readonly Change[];
@@ -98,7 +115,7 @@ export interface SyncStatus {
   readonly conflicts: readonly string[];
 }
 
-/** The two lists of the Actions view. A path that ended up identical on both sides is not a change for anyone. */
+/** The two lists of changes of the Sync page. A path that ended up identical on both sides is not a change for anyone. */
 export function compareStates(base: FileState, local: FileState, remote: FileState): SyncStatus {
   const identical = (path: string): boolean => local.get(path) === remote.get(path);
   const plan = planPull(base, local, remote);

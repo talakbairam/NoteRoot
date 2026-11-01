@@ -7,6 +7,9 @@ import { Logger } from "../services/Logger";
 import { PathGuard } from "../services/PathGuard";
 import { SettingsService } from "../services/SettingsService";
 import { ShowHiddenService } from "../services/ShowHiddenService";
+import { ShowEncryptedService } from "../services/ShowEncryptedService";
+import { ShowUnsyncedService } from "../services/ShowUnsyncedService";
+import { ShowNoTagService } from "../services/ShowNoTagService";
 import { DoubleClickTracker } from "../tree/DoubleClickTracker";
 import { TreeNavigator, MAX_EXPAND_ALL_FOLDERS } from "../tree/TreeNavigator";
 import { TreeStateController } from "../tree/TreeStateController";
@@ -22,10 +25,24 @@ export interface TreeCommandDependencies {
   navigator: TreeNavigator;
   treeState: TreeStateController;
   showHidden: ShowHiddenService;
+  showNoTag: ShowNoTagService;
+  showEncrypted: ShowEncryptedService;
+  showUnsynced: ShowUnsyncedService;
 }
 
 export function registerTreeCommands(deps: TreeCommandDependencies): void {
-  const { context, logger, pathGuard, settings, navigator, treeState, showHidden } = deps;
+  const {
+    context,
+    logger,
+    pathGuard,
+    settings,
+    navigator,
+    treeState,
+    showHidden,
+    showNoTag,
+    showEncrypted,
+    showUnsynced,
+  } = deps;
   const clicks = new DoubleClickTracker(() => settings.doubleClickMs);
 
   // One entry with two commands, because a contributed command cannot change its own title: the menu shows Show Hidden Items while the
@@ -37,6 +54,36 @@ export function registerTreeCommands(deps: TreeCommandDependencies): void {
   registerSafeCommand(context, logger, Commands.hideHiddenItems, async () => {
     await showHidden.setEnabled(false);
     showStatus(Strings.tree.hiddenHidden);
+  });
+
+  // The same two-command swap for the "no tags" marks (context key `noteRoot.showNoTag`).
+  registerSafeCommand(context, logger, Commands.showNoTagItems, async () => {
+    await showNoTag.setEnabled(true);
+    showStatus(Strings.tree.noTagShown);
+  });
+  registerSafeCommand(context, logger, Commands.hideNoTagItems, async () => {
+    await showNoTag.setEnabled(false);
+    showStatus(Strings.tree.noTagHidden);
+  });
+
+  // And for the "encrypted" marks (context key `noteRoot.showEncrypted`).
+  registerSafeCommand(context, logger, Commands.showEncryptedItems, async () => {
+    await showEncrypted.setEnabled(true);
+    showStatus(Strings.tree.encryptedShown);
+  });
+  registerSafeCommand(context, logger, Commands.hideEncryptedItems, async () => {
+    await showEncrypted.setEnabled(false);
+    showStatus(Strings.tree.encryptedHidden);
+  });
+
+  // And for the "not synced" marks (context key `noteRoot.showUnsynced`).
+  registerSafeCommand(context, logger, Commands.showUnsyncedItems, async () => {
+    await showUnsynced.setEnabled(true);
+    showStatus(Strings.tree.unsyncedShown);
+  });
+  registerSafeCommand(context, logger, Commands.hideUnsyncedItems, async () => {
+    await showUnsynced.setEnabled(false);
+    showStatus(Strings.tree.unsyncedHidden);
   });
 
   registerSafeCommand(context, logger, Commands.refresh, async () => {

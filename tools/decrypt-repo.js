@@ -7,8 +7,9 @@
 // not shown), opens every note and writes it, with its own name and folders, into the output folder. It never overwrites a file.
 //
 // Format (it must stay in step with src/services/SyncCrypto.ts):
-//   .noteroot-encrypted  JSON: { format: 1, names: "plain" | "hidden", salt: base64 (16 bytes), check: base64 }
-//   .noteroot-index      sealed JSON: { format: 1, files: { "<path>": { name: "<file online>", hash: "<sha256 of the note>" } } }
+//   .noteroot-encrypted  JSON: { format: 1, names: "plain" | "hidden", salt: base64 (16 bytes), check: base64, custom?: true }
+//   .noteroot-index      sealed JSON: { format: 1, files: { "<path>": { name: "<file online>", hash: "<sha256 of the note>", plain?: true } } }
+//                        (plain: true = the note was left unencrypted and is online as it is, at its own path)
 //   every sealed file    "NRS1" + iv (12) + tag (16) + AES-256-GCM data; the authenticated data is the path of the note
 //                        (".noteroot-index" for the index, "check" for the check text)
 //   key                  scrypt(master key in Unicode NFC, salt, N=32768, r=8, p=1, 32 bytes)
@@ -69,7 +70,9 @@ function decryptRepository(repository, output, masterKey) {
     }
     let plain;
     try {
-      plain = open(key, fs.readFileSync(path.join(repository, ...entry.name.split("/"))), relative);
+      const bytes = fs.readFileSync(path.join(repository, ...entry.name.split("/")));
+      // A note the user chose to leave unencrypted ("plain": true) is online as it is; its hash is still checked below.
+      plain = entry.plain === true ? bytes : open(key, bytes, relative);
     } catch {
       process.stderr.write(`Skipped ${relative}: its file is missing, damaged or was changed.\n`);
       continue;

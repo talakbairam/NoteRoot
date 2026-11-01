@@ -1,0 +1,960 @@
+/* Theme variables only, so every light, dark and high contrast theme works. */
+
+body {
+	padding: 16px 24px 40px;
+	color: var(--vscode-foreground);
+	font-family: var(--vscode-font-family);
+	font-size: var(--vscode-font-size);
+}
+
+main {
+	max-width: 1040px;
+	margin: 0 auto;
+}
+
+h1 {
+	margin: 0 0 4px;
+	font-size: 1.5em;
+	font-weight: 600;
+}
+
+h2 {
+	margin: 0 0 8px;
+	padding-bottom: 4px;
+	font-size: 1.15em;
+	font-weight: 600;
+	border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.intro {
+	margin: 0 0 16px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.toolbar {
+	position: sticky;
+	top: 0;
+	z-index: 5;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	padding: 8px 0;
+	background: var(--vscode-editor-background);
+}
+
+.toolbar input[type='search'] {
+	flex: 1 1 220px;
+	min-width: 0;
+}
+
+.toolbar label {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	white-space: nowrap;
+}
+
+input[type='text'],
+input[type='search'],
+select,
+textarea {
+	box-sizing: border-box;
+	padding: 4px 8px;
+	color: var(--vscode-input-foreground);
+	background: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, transparent));
+	border-radius: 2px;
+	font-family: inherit;
+	font-size: inherit;
+}
+
+select {
+	color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+	background: var(--vscode-dropdown-background, var(--vscode-input-background));
+	border-color: var(--vscode-dropdown-border, var(--vscode-input-border, transparent));
+}
+
+textarea {
+	width: 100%;
+	/* One entry per line: keep the spaces and do not wrap. */
+	font-family: var(--vscode-editor-font-family, monospace);
+	white-space: pre;
+	overflow: auto;
+	resize: vertical;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+	outline: 1px solid var(--vscode-focusBorder);
+	outline-offset: -1px;
+}
+
+.row {
+	padding: 10px 0 10px 12px;
+	border-left: 3px solid transparent;
+}
+
+.row[hidden] {
+	display: none;
+}
+
+/* A setting that was changed from its default has a coloured edge, like the modified settings of VS Code. */
+.row.changed {
+	border-left-color: var(--vscode-settings-modifiedItemIndicator, var(--vscode-focusBorder));
+}
+
+.head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 8px;
+}
+
+.name {
+	font-weight: 600;
+}
+
+.badge {
+	padding: 0 6px;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	border-radius: 8px;
+	font-size: 0.85em;
+}
+
+.badge[hidden] {
+	display: none;
+}
+
+.desc {
+	margin: 2px 0 6px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.control {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+}
+
+.control input[type='text'],
+.control select {
+	flex: 0 1 360px;
+	min-width: 120px;
+}
+
+.control.list {
+	align-items: flex-start;
+}
+
+.list-box {
+	flex: 1 1 100%;
+}
+
+.unit,
+.hint,
+.value-text {
+	color: var(--vscode-descriptionForeground);
+}
+
+.meta {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 12px;
+	margin-top: 6px;
+	font-size: 0.92em;
+	color: var(--vscode-descriptionForeground);
+}
+
+.error {
+	margin: 6px 0 0;
+	color: var(--vscode-errorForeground);
+}
+
+.error[hidden],
+.saved[hidden] {
+	display: none;
+}
+
+.saved {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.92em;
+}
+
+button {
+	padding: 4px 12px;
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+	border-radius: 2px;
+	font-family: inherit;
+	font-size: inherit;
+	cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+	background: var(--vscode-button-hoverBackground);
+}
+
+button:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+button.secondary {
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+}
+
+button.secondary:hover:not(:disabled) {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+button.link {
+	padding: 0;
+	color: var(--vscode-textLink-foreground);
+	background: none;
+	border: none;
+	text-decoration: underline;
+}
+
+button.link:hover:not(:disabled) {
+	color: var(--vscode-textLink-activeForeground);
+	background: none;
+}
+
+button[hidden] {
+	display: none;
+}
+
+
+/* A menu of sections on the left, the chosen section on the right. */
+.layout {
+	display: grid;
+	grid-template-columns: 190px minmax(0, 1fr);
+	gap: 8px 28px;
+	align-items: start;
+	margin-top: 8px;
+}
+
+.nav {
+	position: sticky;
+	top: 56px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+button.nav-item {
+	padding: 6px 10px;
+	text-align: left;
+	color: var(--vscode-foreground);
+	background: none;
+	border: none;
+	border-left: 2px solid transparent;
+	border-radius: 0;
+}
+
+button.nav-item:hover:not(:disabled) {
+	background: var(--vscode-list-hoverBackground);
+}
+
+button.nav-item[aria-current='true'] {
+	font-weight: 600;
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.content {
+	max-width: 760px;
+}
+
+section[hidden] {
+	display: none;
+}
+
+/* A narrow tab: the menu becomes a row above the settings. */
+@media (max-width: 640px) {
+	.layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.nav {
+		position: static;
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
+
+	button.nav-item {
+		border-left: none;
+		border-bottom: 2px solid transparent;
+	}
+
+	button.nav-item[aria-current='true'] {
+		border-bottom-color: var(--vscode-focusBorder);
+	}
+}
+
+/* The Sync page only. */
+.toolbar[hidden] {
+	display: none;
+}
+
+/* The way back to the list of services, at the top of the menu of a service. */
+button.nav-item.back {
+	margin-bottom: 10px;
+	color: var(--vscode-textLink-foreground);
+}
+
+/* The status line: its colour tells how things stand. */
+.option .option-text .desc {
+	overflow-wrap: anywhere;
+}
+
+.option .desc.tone-ok {
+	color: var(--vscode-testing-iconPassed, var(--vscode-foreground));
+}
+
+.option .desc.tone-warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+/* The lists of the Encryption section: framed, side by side when there is room. */
+.listboxes {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+	gap: 16px;
+	margin-top: 20px;
+}
+
+.listbox {
+	min-width: 0;
+	padding: 12px 16px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+/* Lists one under the other (local, remote, conflicts) do not touch. */
+.listbox + .listbox {
+	margin-top: 12px;
+}
+
+/* ...but two side by side (the lists of the encryption) start at the same height and are as tall as each other. */
+.listboxes {
+	align-items: stretch;
+}
+
+.listboxes > .listbox + .listbox {
+	margin-top: 0;
+}
+
+.listbox-head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.listbox .desc {
+	margin: 2px 0 8px;
+}
+
+.listbox .entries {
+	margin: 0;
+}
+
+.listbox .empty {
+	margin: 0;
+}
+
+/* The options: one line each, divided by a thin line; the explanation on the left, the state and the button on the right. */
+.options {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.option {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 24px;
+	padding: 14px 16px;
+}
+
+.option + .option {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.option-text {
+	flex: 1 1 320px;
+	min-width: 0;
+}
+
+/* A service row: the mark on the left of the text. */
+.option-lead {
+	display: flex;
+	flex: 1 1 320px;
+	align-items: center;
+	gap: 14px;
+	min-width: 0;
+}
+
+.service-icon {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+}
+
+.option-text .desc {
+	margin: 2px 0 0;
+}
+
+.option-control {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 10px;
+}
+
+/* The state of an option: a small label, green when it is on, yellow when it limits something. */
+.pill {
+	padding: 1px 10px;
+	border-radius: 10px;
+	border: 1px solid currentColor;
+	font-size: 0.9em;
+	white-space: nowrap;
+}
+
+.pill.neutral {
+	color: var(--vscode-descriptionForeground);
+}
+
+.pill.on {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+}
+
+.pill.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.seal {
+	padding: 0 6px;
+	border-radius: 8px;
+	font-size: 0.85em;
+	border: 1px solid currentColor;
+}
+
+.seal.ok {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+}
+
+.seal.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.entries li.more {
+	list-style: none;
+	color: var(--vscode-descriptionForeground);
+}
+
+.steps {
+	margin: 6px 0 12px;
+	padding: 0 0 0 20px;
+}
+
+.steps li {
+	padding: 2px 0;
+}
+
+.entries {
+	margin: 4px 0 0;
+	padding: 0 0 0 18px;
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.entries li {
+	padding: 1px 0;
+	word-break: break-all;
+}
+
+/* The menu entry has a count (the files that changed): the name on the left, the number on the right. */
+button.nav-item {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.nav-count {
+	color: var(--vscode-descriptionForeground);
+	font-weight: normal;
+}
+
+.row .name {
+	font-weight: 600;
+}
+
+.row .head {
+	display: block;
+}
+
+.value-text.ok {
+	color: var(--vscode-testing-iconPassed, var(--vscode-foreground));
+}
+
+.value-text.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.value-text.busy {
+	color: var(--vscode-descriptionForeground);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+h3 {
+	margin: 0;
+	font-size: 1em;
+	font-weight: 600;
+}
+
+.block {
+	margin-bottom: 20px;
+}
+
+.block-head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.count {
+	color: var(--vscode-descriptionForeground);
+}
+
+/* The changed files: one line each with a thin divider; the name on the left, then what changed, then the Diff button. */
+.file {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 4px 10px;
+	padding: 6px 4px;
+}
+
+.file + .file {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.file button.link {
+	flex: 1 1 200px;
+	min-width: 0;
+	text-align: left;
+	word-break: break-all;
+	text-decoration: none;
+}
+
+.file button.link:hover:not(:disabled) {
+	text-decoration: underline;
+}
+
+/* The folder part of the path is quieter than the name of the file. */
+.file .dir {
+	color: var(--vscode-descriptionForeground);
+}
+
+.kind {
+	padding: 0 8px;
+	color: var(--vscode-descriptionForeground);
+	border: 1px solid currentColor;
+	border-radius: 10px;
+	font-size: 0.85em;
+}
+
+.kind.modified {
+	color: var(--vscode-gitDecoration-modifiedResourceForeground, var(--vscode-descriptionForeground));
+}
+
+.kind.added {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-descriptionForeground));
+}
+
+.kind.deleted {
+	color: var(--vscode-gitDecoration-deletedResourceForeground, var(--vscode-descriptionForeground));
+}
+
+/* Above the conflicts: one choice for all of them. */
+.conflict-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 10px;
+	margin: 8px 0 6px;
+	padding: 8px 12px;
+	background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, transparent));
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.conflict-bar-label {
+	margin-right: 4px;
+	font-weight: 600;
+}
+
+/* Under the conflicts: how many are chosen, and the button that puts the choices in effect. */
+.conflict-footer {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 16px;
+	margin-top: 12px;
+	padding-top: 12px;
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.conflict-progress {
+	color: var(--vscode-descriptionForeground);
+}
+
+.conflict-progress.done {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+}
+
+.conflict-footer button {
+	padding: 5px 18px;
+}
+
+/* Which version to keep for a file in conflict: a line under the name with three buttons, the chosen one filled and ticked. */
+.choice-row {
+	display: flex;
+	flex: 1 0 100%;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 10px;
+	order: 20;
+	padding: 2px 0 4px;
+}
+
+.choice-label {
+	color: var(--vscode-descriptionForeground);
+}
+
+.choice {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.choice button {
+	padding: 2px 12px;
+	color: var(--vscode-button-secondaryForeground);
+	background: var(--vscode-button-secondaryBackground);
+	border: 1px solid var(--vscode-button-border, var(--vscode-contrastBorder, transparent));
+	border-radius: 3px;
+}
+
+.choice button:hover:not(:disabled) {
+	background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.choice button.selected {
+	color: var(--vscode-button-foreground);
+	background: var(--vscode-button-background);
+}
+
+.choice button.selected::before {
+	content: '\2713\00a0';
+}
+
+/* Diff is a small button at the end of the line, not a second link. */
+.file button.link.diff {
+	flex: 0 0 auto;
+	order: 10; /* after the badges */
+	padding: 1px 10px;
+	color: var(--vscode-foreground);
+	border: 1px solid var(--vscode-button-secondaryBackground, var(--vscode-widget-border, currentColor));
+	border-radius: 3px;
+	text-decoration: none;
+}
+
+.file button.link.diff:hover:not(:disabled) {
+	background: var(--vscode-button-secondaryHoverBackground, var(--vscode-toolbar-hoverBackground));
+	text-decoration: none;
+}
+
+.empty {
+	margin: 0;
+}
+
+/* The options: one line each, divided by a thin line; the explanation on the left, the state and the button on the right. */
+.options {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.option {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px 24px;
+	padding: 14px 16px;
+}
+
+.option + .option {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.option-text {
+	flex: 1 1 320px;
+	min-width: 0;
+}
+
+/* A service row: the mark on the left of the text. */
+.option-lead {
+	display: flex;
+	flex: 1 1 320px;
+	align-items: center;
+	gap: 14px;
+	min-width: 0;
+}
+
+.service-icon {
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+}
+
+.option-text .desc {
+	margin: 2px 0 0;
+}
+
+.option-control {
+	display: flex;
+	flex: 0 0 auto;
+	align-items: center;
+	gap: 10px;
+}
+
+/* The state of an option: a small label, green when it is on, yellow when it limits something. */
+.pill {
+	padding: 1px 10px;
+	border-radius: 10px;
+	border: 1px solid currentColor;
+	font-size: 0.9em;
+	white-space: nowrap;
+}
+
+.pill.neutral {
+	color: var(--vscode-descriptionForeground);
+}
+
+.pill.on {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+}
+
+.pill.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.seal {
+	padding: 0 6px;
+	border-radius: 8px;
+	font-size: 0.85em;
+	border: 1px solid currentColor;
+}
+
+.seal.ok {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-foreground));
+}
+
+.seal.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.entries li.more {
+	list-style: none;
+	color: var(--vscode-descriptionForeground);
+}
+
+.steps {
+	margin: 6px 0 12px;
+	padding: 0 0 0 20px;
+}
+
+.steps li {
+	padding: 2px 0;
+}
+
+.entries {
+	margin: 4px 0 0;
+	padding: 0 0 0 18px;
+	font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.entries li {
+	padding: 1px 0;
+	word-break: break-all;
+}
+
+/* The menu entry has a count (the files that changed): the name on the left, the number on the right. */
+button.nav-item {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+}
+
+.nav-count {
+	color: var(--vscode-descriptionForeground);
+	font-weight: normal;
+}
+
+.row .name {
+	font-weight: 600;
+}
+
+.row .head {
+	display: block;
+}
+
+.value-text.ok {
+	color: var(--vscode-testing-iconPassed, var(--vscode-foreground));
+}
+
+.value-text.warn {
+	color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.value-text.busy {
+	color: var(--vscode-descriptionForeground);
+}
+
+.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin-top: 16px;
+}
+
+h3 {
+	margin: 0;
+	font-size: 1em;
+	font-weight: 600;
+}
+
+.block {
+	margin-bottom: 20px;
+}
+
+.block-head {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+}
+
+.count {
+	color: var(--vscode-descriptionForeground);
+}
+
+.file {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 4px 10px;
+	padding: 3px 0;
+}
+
+.file button.link {
+	text-align: left;
+	word-break: break-all;
+}
+
+.kind {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.92em;
+}
+
+.kind.added {
+	color: var(--vscode-gitDecoration-addedResourceForeground, var(--vscode-descriptionForeground));
+}
+
+.kind.deleted {
+	color: var(--vscode-gitDecoration-deletedResourceForeground, var(--vscode-descriptionForeground));
+}
+
+.empty {
+	margin: 4px 0 0;
+	color: var(--vscode-descriptionForeground);
+}
+
+.notice {
+	margin: 0 0 12px;
+	padding: 6px 10px;
+	border-left: 3px solid var(--vscode-editorWarning-foreground, var(--vscode-focusBorder));
+	background: var(--vscode-textBlockQuote-background, transparent);
+}
+
+/* The help box under the buttons: not touching them. */
+.listbox.help {
+	margin-top: 20px;
+}
+
+/* The heading of the list of actions under the cards of the overview. */
+.actions-title {
+	margin: 20px 0 8px;
+}
+
+/* The bar with the actions for all the services does not touch the list of services under it. */
+.all-actions {
+	margin-bottom: 14px;
+}
+
+/* Under the encryption of a service: the details that most people never change, closed until they are wanted. */
+.advanced {
+	margin-top: 16px;
+}
+
+.advanced > summary {
+	margin-bottom: 8px;
+	color: var(--vscode-descriptionForeground);
+	cursor: pointer;
+}
+
+/* The name of the service that is open, above its sections. */
+.service-title {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 16px;
+	font-size: 1.35em;
+	font-weight: 600;
+}
+
+.service-title .service-icon {
+	width: 24px;
+	height: 24px;
+}
+
+/* The settings for all the services, under the list of services. */
+.shared {
+	margin-top: 8px;
+}
+
+/* A list under a card of options (the files to encrypt, the notes that are encrypted) does not touch it. */
+.options + .listbox {
+	margin-top: 14px;
+}

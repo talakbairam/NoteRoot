@@ -6,7 +6,6 @@ import {
   randomBytes,
   scrypt,
 } from "node:crypto";
-import { MIN_KEY_LENGTH } from "./NoteCrypto";
 import { WrongKeyError } from "../util/errors";
 
 /**
@@ -18,7 +17,8 @@ import { WrongKeyError } from "../util/errors";
  *   text sealed with the key, so a wrong key is recognised before anything is downloaded.
  * - `.noteroot-index` (sealed): for each note its path, the name of its file online and the hash of its plain content. The
  *   hash is how the sync tells what changed (every sealing gives different bytes, so the sealed files cannot be compared).
- * - one sealed file for each note.
+ * - one sealed file for each note. In the "only the chosen files" mode (`custom` in the header) a note that the user did not
+ *   choose is online as it is, at its own path, and its index entry has `plain: true` (the hash still guards it).
  *
  * Every file is sealed with AES-256-GCM under a key made once from the master key with scrypt (the master key itself is
  * never stored). The path of the note is the authenticated data, so a sealed file cannot be moved to another note.
@@ -45,13 +45,17 @@ export interface EncryptionHeader {
   readonly salt: string;
   /** A short text sealed with the key, in base64. */
   readonly check: string;
+  /** True when only the files the user chose are sealed; the others are online as they are (`plain` entries of the index). */
+  readonly custom?: true;
 }
 
 export interface IndexEntry {
-  /** The name of the sealed file online. */
+  /** The name of the file online: the sealed file, or the note's own path for a `plain` entry. */
   readonly name: string;
   /** The hash of the plain content. */
   readonly hash: string;
+  /** True for a note that the user chose to leave unencrypted: it is online as it is, at its own path. */
+  readonly plain?: true;
 }
 
 /** Path of a note to its entry. */
@@ -72,11 +76,6 @@ export function deriveKey(masterKey: string, salt: Uint8Array): Promise<Buffer> 
       (error, key) => (error ? reject(error) : resolve(key))
     );
   });
-}
-
-/** Whether a master key is long enough to use. */
-export function isUsableMasterKey(masterKey: string): boolean {
-  return masterKey.length >= MIN_KEY_LENGTH;
 }
 
 export function sha256(bytes: Uint8Array): string {
@@ -125,7 +124,12 @@ export function remoteName(key: Buffer, path: string, names: NameMode): string {
   return `data/${code}.enc`;
 }
 
-export function makeHeader(key: Buffer, salt: Uint8Array, names: NameMode): EncryptionHeader {
+export function makeHeader(
+  key: Buffer,
+  salt: Uint8Array,
+  names: NameMode,
+  custom: boolean
+): EncryptionHeader {
   return {
     format: 1,
     names,
@@ -133,6 +137,7 @@ export function makeHeader(key: Buffer, salt: Uint8Array, names: NameMode): Encr
     check: Buffer.from(sealBytes(key, Buffer.from(CHECK_TEXT, "utf8"), CHECK_AAD)).toString(
       "base64"
     ),
+    ...(custom ? { custom: true as const } : {}),
   };
 }
 
@@ -147,7 +152,7 @@ export function parseHeader(bytes: Uint8Array): EncryptionHeader | undefined {
     if (typeof value !== "object" || value === null) {
       return undefined;
     }
-    const { format, names, salt, check } = value as Record<string, unknown>;
+    const { format, names, salt, check, custom } = value as Record<string, unknown>;
     if (
       format === 1 &&
       (names === "plain" || names === "hidden") &&
@@ -155,7 +160,7 @@ export function parseHeader(bytes: Uint8Array): EncryptionHeader | undefined {
       typeof check === "string" &&
       Buffer.from(salt, "base64").length === 16
     ) {
-      return { format, names, salt, check };
+      return { format, names, salt, check, ...(custom === true ? { custom: true as const } : {}) };
     }
   } catch {
     return undefined; // Not JSON.
@@ -201,7 +206,11 @@ export function decodeIndex(key: Buffer, sealed: Uint8Array): EncryptedIndex {
   for (const [path, raw] of Object.entries(files)) {
     const entry = raw as Partial<IndexEntry> | null;
     if (entry && typeof entry.name === "string" && typeof entry.hash === "string") {
-      index.set(path, { name: entry.name, hash: entry.hash });
+      index.set(path, {
+        name: entry.name,
+        hash: entry.hash,
+        ...(entry.plain === true ? { plain: true as const } : {}),
+      });
     }
   }
   return index;

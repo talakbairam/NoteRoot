@@ -51,7 +51,12 @@ export interface EncryptionConfig {
   readonly names: NameMode;
   /** The salt of the key, in base64. */
   readonly salt: string;
+  /** True when only the files the user chose are encrypted (the others go online as they are). */
+  readonly custom?: true;
 }
+
+/** Tells whether the sync encrypts a note (by its path). Used only in the "only the chosen files" mode. */
+export type SealRule = (path: string) => boolean;
 
 /** What is online in a target, as far as encryption goes. */
 export type TargetKind =
@@ -62,7 +67,8 @@ export type TargetKind =
 const WRONG_KEY_TRIES = 3;
 const TRANSFERS_AT_ONCE = 4;
 
-function keyId(providerId: string, target: RemoteTarget, salt: string): string {
+/** The id under which the key of an encrypted target is saved in the secret storage. */
+export function keyId(providerId: string, target: RemoteTarget, salt: string): string {
   return `noteRoot.sync.key:${providerId}:${target.id}:${salt}`;
 }
 
@@ -70,6 +76,8 @@ function keyId(providerId: string, target: RemoteTarget, salt: string): string {
 export interface SealedRewrite {
   readonly target: RemoteTarget;
   readonly names: NameMode;
+  /** The notes that `isSealed` does not choose stay plain online; without it every note is sealed. */
+  readonly isSealed?: SealRule;
   readonly masterKey: string;
   /** The plain content of every note. */
   readonly files: ReadonlyMap<string, Uint8Array>;
@@ -100,7 +108,12 @@ export class EncryptionSupport {
       if (!parsed) {
         throw new SyncRefusedError(Strings.sync.encryption.headerUnreadable);
       }
-      return { kind: "encrypted", names: parsed.names, salt: parsed.salt };
+      return {
+        kind: "encrypted",
+        names: parsed.names,
+        salt: parsed.salt,
+        ...(parsed.custom ? { custom: true as const } : {}),
+      };
     }
     return snapshot.files.some((file) => file.path !== MARKER_PATH)
       ? { kind: "plain" }
@@ -112,18 +125,33 @@ export class EncryptionSupport {
     provider: SyncProvider,
     target: RemoteTarget,
     names: NameMode,
-    masterKey: string
+    masterKey: string,
+    custom: boolean
   ): Promise<EncryptionConfig> {
     const salt = newSalt();
     const key = await deriveKey(masterKey, salt);
-    const config = { names, salt: salt.toString("base64") };
+    const config: EncryptionConfig = {
+      names,
+      salt: salt.toString("base64"),
+      ...(custom ? { custom: true as const } : {}),
+    };
     await this.keys.set(keyId(provider.id, target, config.salt), key);
     return config;
   }
 
-  /** The provider that seals what it sends and opens what it brings. */
-  wrap(provider: SyncProvider, config: EncryptionConfig): SyncProvider {
-    return new EncryptedSyncProvider(provider, config, this.keys, this.asker, this.logger);
+  /**
+   * The provider that seals what it sends and opens what it brings. With a `custom` config only the notes that `isSealed`
+   * chooses are sealed (all of them when it is missing, which is the safe side).
+   */
+  wrap(provider: SyncProvider, config: EncryptionConfig, isSealed?: SealRule): SyncProvider {
+    return new EncryptedSyncProvider(
+      provider,
+      config,
+      this.keys,
+      this.asker,
+      this.logger,
+      isSealed
+    );
   }
 
   /** Removes the key of an encrypted target from this computer. The master key is asked the next time it is needed. */
@@ -148,7 +176,14 @@ export class EncryptionSupport {
     files: Map<string, Uint8Array>;
     sealedNames: string[];
   }> {
-    const opened = new EncryptedSyncProvider(provider, config, this.keys, this.asker, this.logger);
+    const opened = new EncryptedSyncProvider(
+      provider,
+      config,
+      this.keys,
+      this.asker,
+      this.logger,
+      undefined
+    );
     const snapshot = await opened.snapshot(target);
     const files = new Map<string, Uint8Array>();
     const sealedNames: string[] = [];
@@ -166,6 +201,47 @@ export class EncryptionSupport {
   }
 
   /**
+   * Turns the encryption of a target off: every note is sent as it is, at its own path, and the sealed files, the header and the
+   * index go away, all in one new version. The saved key is forgotten only after the upload worked. Returns the new version and
+   * the hash that the service reports for each note.
+   * @throws NoteRootError (from the provider) when the upload is refused, for example because the target changed meanwhile.
+   */
+  async reveal(
+    provider: SyncProvider,
+    config: EncryptionConfig,
+    job: {
+      readonly target: RemoteTarget;
+      /** The plain content of every note. */
+      readonly files: ReadonlyMap<string, Uint8Array>;
+      /** The names of the sealed files online. */
+      readonly remove: readonly string[];
+      readonly expectedVersion: string | undefined;
+      readonly message: string;
+      readonly options?: UploadOptions;
+    }
+  ): Promise<{ version: string; hashes: ReadonlyMap<string, string> }> {
+    const changes: UploadChange[] = [];
+    for (const [path, plain] of job.files) {
+      changes.push({ path, read: async () => plain });
+    }
+    const plainPaths = new Set(job.files.keys());
+    for (const name of [...job.remove, HEADER_PATH, INDEX_PATH]) {
+      if (!plainPaths.has(name)) {
+        changes.push({ path: name, read: undefined });
+      }
+    }
+    const result = await provider.upload(
+      job.target,
+      job.expectedVersion,
+      changes,
+      job.message,
+      job.options
+    );
+    await this.keys.delete(keyId(provider.id, job.target, config.salt));
+    return { version: result.version, hashes: result.hashes };
+  }
+
+  /**
    * Seals every note again under a new key (a new salt and the key of the new master key) and sends it all as one new
    * version: the sealed notes, the header and the index, and the removal of the files that are no longer used. The new key is
    * kept for this computer only after the upload worked. Returns what the connection must remember, the new version and the
@@ -178,17 +254,29 @@ export class EncryptionSupport {
   ): Promise<{ config: EncryptionConfig; version: string; hashes: Map<string, string> }> {
     const salt = newSalt();
     const key = await deriveKey(job.masterKey, salt);
-    const config: EncryptionConfig = { names: job.names, salt: salt.toString("base64") };
+    const custom = job.isSealed !== undefined;
+    const config: EncryptionConfig = {
+      names: job.names,
+      salt: salt.toString("base64"),
+      ...(custom ? { custom: true as const } : {}),
+    };
     const index: EncryptedIndex = new Map();
     const hashes = new Map<string, string>();
     const keep = new Set<string>();
     const changes: UploadChange[] = [];
     for (const [path, plain] of job.files) {
-      const name = remoteName(key, path, job.names);
       const hash = sha256(plain);
+      hashes.set(path, hash);
+      if (job.isSealed && !job.isSealed(path)) {
+        // Left plain by the user's choice: online as it is, at its own path.
+        index.set(path, { name: path, hash, plain: true });
+        keep.add(path);
+        changes.push({ path, read: async () => plain });
+        continue;
+      }
+      const name = remoteName(key, path, job.names);
       const sealed = sealBytes(key, plain, path);
       index.set(path, { name, hash });
-      hashes.set(path, hash);
       keep.add(name);
       changes.push({ path: name, read: async () => sealed });
     }
@@ -197,7 +285,7 @@ export class EncryptionSupport {
         changes.push({ path: name, read: undefined });
       }
     }
-    const header = encodeHeader(makeHeader(key, salt, job.names));
+    const header = encodeHeader(makeHeader(key, salt, job.names, custom));
     const indexBytes = encodeIndex(key, index);
     changes.push({ path: HEADER_PATH, read: async () => header });
     changes.push({ path: INDEX_PATH, read: async () => indexBytes });
@@ -247,7 +335,8 @@ class EncryptedSyncProvider implements SyncProvider {
     private readonly config: EncryptionConfig,
     private readonly keys: KeyStore,
     private readonly asker: KeyAsker,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    private readonly isSealed: SealRule | undefined
   ) {
     this.id = inner.id;
     this.label = inner.label;
@@ -260,6 +349,10 @@ class EncryptedSyncProvider implements SyncProvider {
     this.loading = inner.loading;
     this.creator = inner.creator;
     this.finder = inner.finder;
+  }
+
+  webUrl(target: RemoteTarget): string | undefined {
+    return this.inner.webUrl?.(target);
   }
 
   /** The hash of the plain content: what the sync compares. */
@@ -320,29 +413,45 @@ class EncryptedSyncProvider implements SyncProvider {
     return { version: raw.version, files, truncated: raw.truncated };
   }
 
-  /** The name online of the sealed file of a note, from the last read. */
+  /** The name online of the sealed file of a note, from the last read (a note that is left plain has none). */
   sealedNameOf(path: string): string | undefined {
-    return this.session?.index.get(path)?.name;
+    const entry = this.session?.index.get(path);
+    return entry && !entry.plain ? entry.name : undefined;
   }
 
   async download(target: RemoteTarget, file: RemoteFile): Promise<Uint8Array> {
     const session = await this.sessionFor(target);
-    const entry = session.index.get(file.path);
-    const sealed = entry ? session.byName.get(entry.name) : undefined;
-    if (!entry || !sealed) {
-      throw new SyncRefusedError(Strings.sync.encryption.damaged(file.path));
+    return this.readNote(target, session, file.path);
+  }
+
+  /** Whether this note is sealed now: always, unless the repository is set to seal only the chosen files. */
+  private wantsSeal(path: string): boolean {
+    return !this.config.custom || (this.isSealed?.(path) ?? true);
+  }
+
+  /** Reads one note of the session: opens the sealed file, or takes the plain one, and checks the hash of the index. */
+  private async readNote(
+    target: RemoteTarget,
+    session: Session,
+    path: string
+  ): Promise<Uint8Array> {
+    const entry = session.index.get(path);
+    const online = entry ? session.byName.get(entry.name) : undefined;
+    if (!entry || !online) {
+      throw new SyncRefusedError(Strings.sync.encryption.damaged(path));
     }
     let plain: Uint8Array;
     try {
-      plain = openBytes(session.key, await this.inner.download(target, sealed), file.path);
+      const bytes = await this.inner.download(target, online);
+      plain = entry.plain ? bytes : openBytes(session.key, bytes, path);
     } catch (error) {
       if (error instanceof WrongKeyError) {
-        throw new SyncRefusedError(Strings.sync.encryption.damaged(file.path));
+        throw new SyncRefusedError(Strings.sync.encryption.damaged(path));
       }
       throw error;
     }
     if (sha256(plain) !== entry.hash) {
-      throw new SyncRefusedError(Strings.sync.encryption.damaged(file.path));
+      throw new SyncRefusedError(Strings.sync.encryption.damaged(path));
     }
     return plain;
   }
@@ -358,6 +467,21 @@ class EncryptedSyncProvider implements SyncProvider {
     const index: EncryptedIndex = new Map(session.index);
     const sent: UploadChange[] = [];
     const hashes = new Map<string, string>();
+    const store = (path: string, plain: Uint8Array): void => {
+      const hash = sha256(plain);
+      const old = index.get(path);
+      const sealed = this.wantsSeal(path);
+      const name = sealed ? remoteName(session.key, path, this.config.names) : path;
+      if (old && old.name !== name) {
+        // The note changes between sealed and plain: the file it had online goes away.
+        sent.push({ path: old.name, read: undefined });
+      }
+      const bytes = sealed ? sealBytes(session.key, plain, path) : plain;
+      sent.push({ path: name, read: async () => bytes });
+      index.set(path, sealed ? { name, hash } : { name, hash, plain: true });
+      hashes.set(path, hash);
+    };
+    const changed = new Set(changes.map((change) => change.path));
     for (const change of changes) {
       const old = index.get(change.path);
       if (!change.read) {
@@ -367,19 +491,22 @@ class EncryptedSyncProvider implements SyncProvider {
         }
         continue;
       }
-      const plain = await change.read();
-      const hash = sha256(plain);
-      const name = remoteName(session.key, change.path, this.config.names);
-      const sealed = sealBytes(session.key, plain, change.path);
-      sent.push({ path: name, read: async () => sealed });
-      index.set(change.path, { name, hash });
-      hashes.set(change.path, hash);
+      store(change.path, await change.read());
+    }
+    // A note whose choice changed since it was sent (added to or taken out of the list) is sent again in its new form, even
+    // though its content did not change: otherwise "encrypt this file" would leave the plain copy online.
+    for (const [path, entry] of [...index]) {
+      if (changed.has(path) || Boolean(entry.plain) === !this.wantsSeal(path)) {
+        continue;
+      }
+      store(path, await this.readNote(target, session, path));
     }
     if (!session.header) {
       const header = makeHeader(
         session.key,
         Buffer.from(this.config.salt, "base64"),
-        this.config.names
+        this.config.names,
+        this.config.custom === true
       );
       sent.push({ path: HEADER_PATH, read: async () => encodeHeader(header) });
     }

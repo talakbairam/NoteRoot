@@ -13,6 +13,7 @@ import { RootFolderService } from "../services/RootFolderService";
 import { RootMissingError } from "../util/errors";
 import { parentOf } from "../util/uri";
 import { NoteItem } from "./NoteItem";
+import type { NotesNode } from "./NotesNode";
 import { TreeNavigator } from "./TreeNavigator";
 
 /** The mime type is the tree view id in lower case, prefixed by VS Code. */
@@ -26,7 +27,7 @@ const URI_LIST_MIME_TYPE = "text/uri-list";
  * Moves items inside the tree, and copies files and folders dropped from the operating system into it.
  * Dragging items out of the tree is not supported.
  */
-export class NotesDragAndDrop implements vscode.TreeDragAndDropController<NoteItem> {
+export class NotesDragAndDrop implements vscode.TreeDragAndDropController<NotesNode> {
   readonly dragMimeTypes = [TREE_MIME_TYPE];
   readonly dropMimeTypes = [TREE_MIME_TYPE, FILES_MIME_TYPE, URI_LIST_MIME_TYPE];
 
@@ -38,15 +39,22 @@ export class NotesDragAndDrop implements vscode.TreeDragAndDropController<NoteIt
     private readonly logger: Logger
   ) {}
 
-  handleDrag(source: readonly NoteItem[], dataTransfer: vscode.DataTransfer): void {
-    // URIs travel as strings: they are validated again on drop, as the data is not trusted.
+  handleDrag(source: readonly NotesNode[], dataTransfer: vscode.DataTransfer): void {
+    // URIs travel as strings: they are validated again on drop, as the data is not trusted. The group rows are not files.
     dataTransfer.set(
       TREE_MIME_TYPE,
-      new vscode.DataTransferItem(source.map((item) => item.uri.toString()))
+      new vscode.DataTransferItem(
+        source.filter((item) => item instanceof NoteItem).map((item) => item.uri.toString())
+      )
     );
   }
 
-  async handleDrop(target: NoteItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
+  async handleDrop(
+    dropTarget: NotesNode | undefined,
+    dataTransfer: vscode.DataTransfer
+  ): Promise<void> {
+    // The groups at the top are not folders: a drop on one counts as a drop on the notes folder itself.
+    const target = dropTarget instanceof NoteItem ? dropTarget : undefined;
     try {
       const sources = this.readSources(dataTransfer);
       if (sources.length > 0) {

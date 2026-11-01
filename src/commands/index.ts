@@ -1,5 +1,9 @@
 import { registerConfigNotifications } from "./configNotifications";
 import {
+  registerEncryptListCommands,
+  type EncryptListCommandDependencies,
+} from "./encryptListCommands";
+import {
   registerEncryptionCommands,
   type EncryptionCommandDependencies,
 } from "./encryptionCommands";
@@ -33,6 +37,7 @@ export type CommandDependencies = RootCommandDependencies &
   LabelViewCommandDependencies &
   TagPatternCommandDependencies &
   TaggingCommandDependencies &
+  EncryptListCommandDependencies &
   HeaderCommandDependencies &
   EncryptionCommandDependencies &
   SettingsCommandDependencies &
@@ -53,6 +58,7 @@ export function registerCommands(deps: CommandDependencies): void {
   registerLabelViewCommands(deps);
   registerTagPatternCommands(deps);
   registerTaggingCommands(deps);
+  registerEncryptListCommands(deps);
   registerHeaderCommands(deps);
   registerEncryptionCommands(deps);
   registerSettingsCommands(deps);

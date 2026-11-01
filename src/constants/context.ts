@@ -15,10 +15,22 @@ export const ContextKeys = {
   activeInRoot: "noteRoot.activeInRoot",
   /** True while the Notes tree also shows the files and folders that the exclude patterns hide. Swaps Show Hidden Items and Hide Hidden Items in the menu. */
   showHidden: "noteRoot.showHidden",
-  /** True while this notes folder is connected to a GitHub repository. Drives the Actions view and its buttons. */
+  /** True while the Notes tree marks the items that are left out of automatic tagging. Swaps Show No-Tag Items and Hide No-Tag Items in the menu. */
+  showNoTag: "noteRoot.showNoTag",
+  /** True while the Notes tree marks the items that the sync encrypts. Swaps Show Encrypted Items and Hide Encrypted Items in the menu. */
+  showEncrypted: "noteRoot.showEncrypted",
+  /** True while the Notes tree marks the items that the sync leaves alone. Swaps Show Not-Synced Items and Hide Not-Synced Items in the menu. */
+  showUnsynced: "noteRoot.showUnsynced",
+  /** True while the Pinned group of the Notes tree shows its notes (it is on). Swaps its turn on and turn off buttons. */
+  pinnedOn: "noteRoot.pinnedOn",
+  /** True while the Recent group shows its notes and notes opened are remembered. Swaps its turn on and turn off buttons. */
+  recentOn: "noteRoot.recentOn",
+  /** True while this notes folder is connected to a GitHub repository. Drives the sync commands of the palette. */
   syncConnected: "noteRoot.syncConnected",
   /** True while the connected target is encrypted. Shows the key commands of the Actions menu. */
   syncEncrypted: "noteRoot.syncEncrypted",
+  /** True while the connected target encrypts only the files the user chose. Shows Encrypt in Sync and Don't Encrypt in Sync in the tree menu. */
+  syncCustom: "noteRoot.syncCustom",
   /** True while NoteRoot checks by itself whether the repository has a new commit. Swaps the two menu entries. */
   syncAutoCheck: "noteRoot.syncAutoCheck",
 } as const;
@@ -27,10 +39,7 @@ export const ViewIds = {
   container: "noteRoot",
   tree: "noteRoot.tree",
   labels: "noteRoot.labels",
-  settings: "noteRoot.settings",
-  recent: "noteRoot.recent",
   quickNote: "noteRoot.quickNote",
-  sync: "noteRoot.sync",
 } as const;
 
 /** Keys used in `globalState` (per machine). */
@@ -47,6 +56,18 @@ export const StateKeys = {
   /** Set once the Get Started walkthrough was opened automatically. */
   /** Whether the Notes tree shows the hidden files and folders (per machine). */
   showHidden: "noteRoot.showHidden",
+  /** Whether the Notes tree marks the items left out of automatic tagging (per machine). */
+  showNoTag: "noteRoot.showNoTag",
+  /** Whether the Notes tree marks the items that the sync encrypts (per machine). */
+  showEncrypted: "noteRoot.showEncrypted",
+  /** Whether the Notes tree marks the items that the sync leaves alone (per machine). */
+  showUnsynced: "noteRoot.showUnsynced",
+  /** Whether the Pinned group shows its notes (per machine; on when nothing is stored). */
+  pinnedOn: "noteRoot.pinnedOn",
+  /** Whether the Recent group shows its notes and remembers new ones (per machine; on when nothing is stored). */
+  recentOn: "noteRoot.recentOn",
+  /** Where the Google client of the user is kept when it is typed: `local` or `config` (per machine). */
+  googleClientPlace: "noteRoot.googleClientPlace",
   walkthroughShown: "noteRoot.walkthroughShown",
   /** The GitHub repository of each notes folder and the last state that was synced (per machine). */
   sync: "noteRoot.sync",

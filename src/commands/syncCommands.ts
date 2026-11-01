@@ -1,47 +1,157 @@
 import * as vscode from "vscode";
 import { Commands } from "../constants/commands";
+import { SettingKeys, type SyncMarkedAction } from "../constants/settings";
 import { Strings } from "../constants/strings";
 import { Logger } from "../services/Logger";
 import type { OnlineViewService } from "../services/OnlineViewService";
 import { PathGuard } from "../services/PathGuard";
+import type { SettingsService } from "../services/SettingsService";
 import { RootFolderService } from "../services/RootFolderService";
-import type { Resolution } from "../services/SyncPlan";
+import type { SyncHub } from "../services/SyncHub";
+import { countChanges, type Resolution } from "../services/SyncPlan";
 import {
   DEFAULT_KEEP_LAST,
   MAX_KEEP_LAST,
   type RemoteTarget,
   type SyncProvider,
 } from "../services/SyncProvider";
-import type {
-  ConflictRequest,
-  ConflictResolver,
-  SyncConnection,
-  SyncService,
-} from "../services/SyncService";
+import type { ConflictRequest, SyncConnection, SyncService } from "../services/SyncService";
 import type { EncryptionConfig } from "../services/EncryptedSyncProvider";
 import type { NameMode } from "../services/SyncCrypto";
-import { SyncRefusedError } from "../util/errors";
+import { NoteRootError, SyncRefusedError } from "../util/errors";
 import { showStatus } from "../util/status";
+import { SyncStatusItem } from "../tree/NotesNode";
+import type { SyncPageProvider } from "../webview/SyncPageProvider";
 import { registerSafeCommand } from "./safe";
 import { askNewMasterKey } from "./syncKeyPrompt";
 
 /** A file bigger than this is not shown in the diff of the Actions panel. */
 const MAX_DIFF_BYTES = 2_000_000;
 
-/** The command that VS Code makes for every view: shows it and focuses it. */
-const FOCUS_SYNC_VIEW = "noteRoot.sync.focus";
-
 export interface SyncCommandDependencies {
   context: vscode.ExtensionContext;
   logger: Logger;
   rootService: RootFolderService;
   pathGuard: PathGuard;
-  syncService: SyncService;
+  syncService: SyncHub;
   onlineView: OnlineViewService;
+  syncPage: SyncPageProvider;
+  settings: SettingsService;
 }
 
 export function registerSyncCommands(deps: SyncCommandDependencies): void {
-  const { context, logger, rootService, pathGuard, syncService, onlineView } = deps;
+  const {
+    context,
+    logger,
+    rootService,
+    pathGuard,
+    syncService: hub,
+    onlineView,
+    syncPage,
+    settings,
+  } = deps;
+
+  /** The id of a provider from a command argument: the id itself (the Sync page), or a row of the sync in the Notes tree. */
+  const providerIdOf = (argument: unknown): string | undefined =>
+    typeof argument === "string"
+      ? argument
+      : argument instanceof SyncStatusItem
+        ? argument.providerId
+        : undefined;
+
+  /**
+   * The service a command acts on: the one named by the argument; else the only one that is connected; else the user picks one of
+   * the connected ones. Undefined when the user cancelled. Throws when nothing is connected.
+   */
+  const serviceFor = async (argument?: unknown): Promise<SyncService | undefined> => {
+    const id = providerIdOf(argument);
+    const named = id === undefined ? undefined : hub.service(id);
+    if (named) {
+      return named;
+    }
+    const connected = hub.connected;
+    if (connected.length === 0) {
+      throw new SyncRefusedError(Strings.sync.notConnected);
+    }
+    if (connected.length === 1) {
+      return connected[0];
+    }
+    const picked = await vscode.window.showQuickPick(
+      connected.map((service) => ({
+        label: service.provider.label,
+        description: service.connection?.target.label,
+        service,
+      })),
+      { title: Strings.sync.chooseServiceTitle, placeHolder: Strings.sync.chooseServicePlaceholder }
+    );
+    return picked?.service;
+  };
+
+  // The page of the repository or the folder in the browser. The address comes from the provider, never from the page.
+  registerSafeCommand(context, logger, Commands.syncOpenOnline, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    if (!service) {
+      return;
+    }
+    const connection = service.connection;
+    if (!connection) {
+      throw new SyncRefusedError(Strings.sync.notConnected);
+    }
+    const address = connection.provider.webUrl?.(connection.target);
+    if (!address || !address.startsWith("https://")) {
+      void vscode.window.showInformationMessage(Strings.sync.noWebPage(connection.provider.label));
+      return;
+    }
+    await vscode.env.openExternal(vscode.Uri.parse(address));
+  });
+
+  // A choice of the Conflicts of the Sync page: which version to keep for a file, used at the next pull. Nothing is changed now.
+  registerSafeCommand(
+    context,
+    logger,
+    Commands.syncChooseConflict,
+    async (path?: unknown, resolution?: unknown, provider?: unknown) => {
+      const service = await serviceFor(provider);
+      if (
+        !service ||
+        typeof path !== "string" ||
+        (resolution !== "mine" &&
+          resolution !== "theirs" &&
+          resolution !== "both" &&
+          resolution !== "ask")
+      ) {
+        return;
+      }
+      service.setConflictChoice(path, resolution === "ask" ? undefined : resolution);
+    }
+  );
+
+  // Push without the question about the message: the button of the Options of the Sync page turns it on and off.
+  registerSafeCommand(context, logger, Commands.syncAutoMessage, async () => {
+    await settings.setValue(SettingKeys.syncAutoMessage, !settings.syncAutoMessage);
+  });
+
+  // What Push does with a file on the list of the files to encrypt when the repository is not encrypted.
+  registerSafeCommand(context, logger, Commands.syncMarkedAction, async () => {
+    const text = Strings.sync;
+    const items: (vscode.QuickPickItem & { action: SyncMarkedAction })[] = [
+      { label: text.markedPickAsk, detail: text.markedPickAskDetail, action: "ask" },
+      { label: text.markedPickPlain, detail: text.markedPickPlainDetail, action: "plain" },
+      { label: text.markedPickSkip, detail: text.markedPickSkipDetail, action: "skip" },
+      { label: text.markedPickEncrypt, detail: text.markedPickEncryptDetail, action: "encrypt" },
+    ];
+    const picked = await vscode.window.showQuickPick(items, {
+      title: text.markedPickTitle,
+      placeHolder: text.markedPickPlaceholder,
+    });
+    if (picked) {
+      await settings.setValue(SettingKeys.syncMarkedAction, picked.action);
+    }
+  });
+
+  registerSafeCommand(context, logger, Commands.openSyncPage, () => {
+    syncPage.open();
+  });
 
   /** Every action that talks to a service starts here: a notes folder, and a sign-in (VS Code asks if there is none). */
   const prepare = async (provider: SyncProvider): Promise<boolean> => {
@@ -56,8 +166,8 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
   };
 
   /** The connection of this notes folder, signed in. Undefined when the user declined the sign-in. */
-  const prepareConnection = async (): Promise<SyncConnection | undefined> => {
-    const connection = syncService.connection;
+  const prepareConnection = async (service: SyncService): Promise<SyncConnection | undefined> => {
+    const connection = service.connection;
     if (!connection) {
       throw new SyncRefusedError(Strings.sync.notConnected);
     }
@@ -67,20 +177,55 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
   const withProgress = <T>(title: string, task: () => Promise<T>): Thenable<T> =>
     vscode.window.withProgress({ location: vscode.ProgressLocation.Window, title }, task);
 
-  const refresh = async (): Promise<void> => {
-    const snapshot = await withProgress(Strings.sync.checking, () => syncService.refresh());
+  const refresh = async (service: SyncService): Promise<void> => {
+    const snapshot = await withProgress(Strings.sync.checking, () => service.refresh());
     const status = snapshot.status;
     if (status) {
-      showStatus(Strings.sync.refreshed(status.local.length, status.remote.length));
+      const counts = countChanges(status);
+      showStatus(Strings.sync.refreshed(counts.push, counts.pull, counts.conflicts));
     }
   };
 
-  /** Pulls (the questions for conflicts come first) and tells what happened. True when it finished without problems. */
-  const runPull = async (): Promise<boolean> => {
+  /**
+   * A pull stopped because of files without a choice: nothing is asked in a pop-up, the user is sent to the Conflicts of the Sync
+   * page. The files are compared again first, so the page has them. A file that is in the list only because of unsaved changes in
+   * an editor is not a conflict of the page: the message then says to save it.
+   */
+  const sendToConflicts = async (service: SyncService, blocked: string[]): Promise<void> => {
+    // Only so that the page shows the conflicts: a failure here is not the point of the message.
+    await service.refresh().then(undefined, () => undefined);
+    const listed = new Set(service.snapshot.status?.conflicts);
+    if (!blocked.some((path) => listed.has(path))) {
+      void vscode.window.showWarningMessage(Strings.sync.unsavedBlocks(blocked.length));
+      return;
+    }
+    void vscode.window
+      .showInformationMessage(
+        Strings.sync.fixConflictsFirst(blocked.length),
+        Strings.sync.openConflicts
+      )
+      .then((answer) => {
+        if (answer === Strings.sync.openConflicts) {
+          syncPage.open({ provider: service.provider.id, section: "changes" });
+        }
+        return undefined;
+      });
+  };
+
+  /** Pulls (the files in conflict need a choice first) and tells what happened. True when it finished without problems. */
+  const runPull = async (service: SyncService): Promise<boolean> => {
+    let blocked: string[] = [];
     const result = await withProgress(Strings.sync.pulling, () =>
-      syncService.pull(resolveConflicts)
+      service.pull((conflicts) =>
+        resolveConflicts(conflicts, service.conflictChoices, (paths) => {
+          blocked = paths;
+        })
+      )
     );
     if (result.cancelled) {
+      if (blocked.length > 0) {
+        await sendToConflicts(service, blocked);
+      }
       return false;
     }
     const nothing = result.written === 0 && result.trashed === 0 && result.failed === 0;
@@ -105,17 +250,20 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
    * Pushes what changed here. When there are changes online that are not here yet, it offers to pull first and then push,
    * like `git pull` and `git push`: every question of the pull and of the push is still asked.
    */
-  const runPush = async (options: { afterPull: boolean }): Promise<void> => {
-    const connection = await prepareConnection();
+  const runPush = async (
+    service: SyncService,
+    options: { afterPull: boolean; message?: string }
+  ): Promise<void> => {
+    const connection = await prepareConnection(service);
     if (!connection) {
       return;
     }
-    await refresh();
-    const status = syncService.snapshot.status;
+    await refresh(service);
+    const status = service.snapshot.status;
     if (!status) {
       return;
     }
-    if (syncService.snapshot.hasNewVersion || status.remote.length > 0) {
+    if (service.snapshot.hasNewVersion || status.remote.length > 0) {
       if (options.afterPull) {
         void vscode.window.showWarningMessage(Strings.sync.stillBehind);
         return;
@@ -126,17 +274,58 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
         Strings.sync.pullAction
       );
       if (answer === Strings.sync.pullThenPush) {
-        if (await runPull()) {
-          await runPush({ afterPull: true });
+        if (await runPull(service)) {
+          await runPush(service, { afterPull: true });
         }
       } else if (answer === Strings.sync.pullAction) {
-        await runPull();
+        await runPull(service);
       }
       return;
     }
     if (status.local.length === 0) {
       void vscode.window.showInformationMessage(Strings.sync.nothingToPush);
       return;
+    }
+    // Files on the list of the files to encrypt go online as plain text when the repository is not encrypted: ask first.
+    let skip: string[] = [];
+    if (!connection.encryption) {
+      const marked = status.local
+        .filter((change) => change.kind !== "deleted" && service.isSealedPath(change.path))
+        .map((change) => change.path);
+      if (marked.length > 0) {
+        // The setting can answer for the user; "ask" shows the question.
+        const policy = settings.syncMarkedAction;
+        const answer =
+          policy === "plain"
+            ? Strings.sync.pushPlainAction
+            : policy === "skip"
+              ? Strings.sync.skipMarkedAction
+              : policy === "encrypt"
+                ? Strings.sync.encryptMarkedAction
+                : await vscode.window.showWarningMessage(
+                    Strings.sync.markedNotEncrypted(marked.length, connection.provider.targetNoun),
+                    { modal: true, detail: Strings.sync.markedNotEncryptedDetail(marked) },
+                    Strings.sync.pushPlainAction,
+                    Strings.sync.encryptMarkedAction,
+                    Strings.sync.skipMarkedAction
+                  );
+        if (answer === Strings.sync.encryptMarkedAction) {
+          // Only the marked files are sealed from now on; then the push starts again, now with an encrypted target.
+          if (await encryptRepositoryFlow(service, connection, "chosen")) {
+            await runPush(service, options);
+          }
+          return;
+        }
+        if (answer === Strings.sync.skipMarkedAction) {
+          skip = marked;
+        } else if (answer !== Strings.sync.pushPlainAction) {
+          return;
+        }
+        if (skip.length > 0 && status.local.every((change) => skip.includes(change.path))) {
+          void vscode.window.showInformationMessage(Strings.sync.nothingToPush);
+          return;
+        }
+      }
     }
     if (!connection.target.isPrivate) {
       const answer = await vscode.window.showWarningMessage(
@@ -159,18 +348,26 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
         return;
       }
     }
-    const message = await vscode.window.showInputBox({
-      prompt: Strings.sync.commitMessagePrompt,
-      value: Strings.sync.defaultCommitMessage(
-        new Date().toISOString().slice(0, 16).replace("T", " ")
-      ),
-      validateInput: (value) =>
-        value.trim().length === 0 ? Strings.sync.commitMessageEmpty : undefined,
-    });
+    // The default message, or the one the user types (or confirms) when the setting asks for it.
+    const defaultMessage = Strings.sync.defaultCommitMessage(
+      new Date().toISOString().slice(0, 16).replace("T", " ")
+    );
+    const message =
+      options.message ??
+      (settings.syncAutoMessage
+        ? defaultMessage
+        : await vscode.window.showInputBox({
+            prompt: Strings.sync.commitMessagePrompt,
+            value: defaultMessage,
+            validateInput: (value) =>
+              value.trim().length === 0 ? Strings.sync.commitMessageEmpty : undefined,
+          }));
     if (message === undefined) {
       return;
     }
-    const result = await withProgress(Strings.sync.pushing, () => syncService.push(message.trim()));
+    const result = await withProgress(Strings.sync.pushing, () =>
+      service.push(message.trim(), { skip })
+    );
     if (result.files === 0) {
       void vscode.window.showInformationMessage(Strings.sync.nothingToPush);
     } else {
@@ -183,9 +380,12 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
 
   // ----- connecting -----
 
-  const connect = async (): Promise<void> => {
-    const provider = await pickProvider(syncService.providers);
-    if (!provider || !(await prepare(provider))) {
+  const connect = async (argument?: unknown): Promise<void> => {
+    // The Sync page and the rows of the Notes tree name the service; the Command Palette asks.
+    const requested = hub.providers.find((candidate) => candidate.id === providerIdOf(argument));
+    const provider = requested ?? (await pickProvider(hub.providers));
+    const service = provider ? hub.service(provider.id) : undefined;
+    if (!provider || !service || !(await prepare(provider))) {
       return;
     }
     const target = await pickTarget(provider);
@@ -202,7 +402,7 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
         return;
       }
     }
-    const current = syncService.connection;
+    const current = service.connection;
     if (current && (current.provider.id !== provider.id || current.target.id !== target.id)) {
       const answer = await vscode.window.showWarningMessage(
         Strings.sync.switchWarning(target.label),
@@ -223,7 +423,7 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       keepLast = answer.keepLast;
     }
     // Encrypted notes: a repository that NoteRoot encrypted is opened as such; an empty one can be encrypted from the start.
-    const encryption = await chooseEncryption(provider, target);
+    const encryption = await chooseEncryption(service, provider, target);
     if (encryption === "cancelled") {
       return;
     }
@@ -232,9 +432,9 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     if (includeHidden === undefined) {
       return;
     }
-    await syncService.connect(provider, target, encryption);
+    await service.connect(provider, target, encryption);
     if (includeHidden) {
-      await syncService.setIncludeHidden(true);
+      await service.setIncludeHidden(true);
     }
     if (encryption) {
       void vscode.window.showInformationMessage(
@@ -242,14 +442,13 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       );
     }
     if (keepLast !== undefined) {
-      await syncService.setKeepLast(keepLast);
+      await service.setKeepLast(keepLast);
     }
     showStatus(Strings.sync.connected(target.label), 2);
-    await vscode.commands.executeCommand(FOCUS_SYNC_VIEW);
-    await refresh();
+    await refresh(service);
     // A repository that already has files: bring them here now. Conflicts are asked, nothing is overwritten silently.
-    if ((syncService.snapshot.status?.remote.length ?? 0) > 0) {
-      await runPull();
+    if ((service.snapshot.status?.remote.length ?? 0) > 0) {
+      await runPull(service);
     }
   };
 
@@ -259,14 +458,19 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
    * notes is used as it is. Returns "cancelled" when the user backed out.
    */
   const chooseEncryption = async (
+    service: SyncService,
     provider: SyncProvider,
     target: RemoteTarget
   ): Promise<EncryptionConfig | undefined | "cancelled"> => {
     const kind = await withProgress(Strings.sync.checking, () =>
-      syncService.inspectTarget(provider, target)
+      service.inspectTarget(provider, target)
     );
     if (kind.kind === "encrypted") {
-      return { names: kind.names, salt: kind.salt };
+      return {
+        names: kind.names,
+        salt: kind.salt,
+        ...(kind.custom ? { custom: true as const } : {}),
+      };
     }
     if (kind.kind === "plain") {
       return undefined;
@@ -296,19 +500,24 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     if (names === undefined) {
       return "cancelled";
     }
+    const custom = await askScope();
+    if (custom === undefined) {
+      return "cancelled";
+    }
     const masterKey = await askNewMasterKey();
     if (masterKey === undefined) {
       return "cancelled";
     }
-    return syncService.prepareEncryption(provider, target, names, masterKey);
+    return service.prepareEncryption(provider, target, names, masterKey, custom);
   };
 
   registerSafeCommand(context, logger, Commands.syncConnect, connect);
   registerSafeCommand(context, logger, Commands.syncChangeRepository, connect);
 
-  registerSafeCommand(context, logger, Commands.syncDisconnect, async () => {
-    const connection = syncService.connection;
-    if (!connection) {
+  registerSafeCommand(context, logger, Commands.syncDisconnect, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service?.connection;
+    if (!service || !connection) {
       return;
     }
     const answer = await vscode.window.showWarningMessage(
@@ -317,15 +526,16 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       Strings.sync.disconnectAction
     );
     if (answer === Strings.sync.disconnectAction) {
-      await syncService.disconnect();
+      await service.disconnect();
       showStatus(Strings.sync.disconnected);
     }
   });
 
-  registerSafeCommand(context, logger, Commands.syncHistory, async () => {
-    const connection = syncService.connection;
-    if (!connection) {
-      throw new SyncRefusedError(Strings.sync.notConnected);
+  registerSafeCommand(context, logger, Commands.syncHistory, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service?.connection;
+    if (!service || !connection) {
+      return;
     }
     if (!connection.provider.canLimitHistory) {
       void vscode.window.showInformationMessage(
@@ -337,7 +547,7 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     if (!answer || answer.keepLast === connection.keepLast) {
       return;
     }
-    await syncService.setKeepLast(answer.keepLast);
+    await service.setKeepLast(answer.keepLast);
     showStatus(
       answer.keepLast === undefined
         ? Strings.sync.historyOff
@@ -346,16 +556,17 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     );
   });
 
-  registerSafeCommand(context, logger, Commands.syncHidden, async () => {
-    const connection = syncService.connection;
-    if (!connection) {
-      throw new SyncRefusedError(Strings.sync.notConnected);
+  registerSafeCommand(context, logger, Commands.syncHidden, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service?.connection;
+    if (!service || !connection) {
+      return;
     }
     const include = await askHiddenMode(connection.target.label, connection.includeHidden);
     if (include === undefined || include === connection.includeHidden) {
       return;
     }
-    await syncService.setIncludeHidden(include);
+    await service.setIncludeHidden(include);
     showStatus(include ? Strings.sync.hidden.on : Strings.sync.hidden.off, 2);
   });
 
@@ -367,8 +578,10 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     context,
     logger,
     Commands.syncShowChange,
-    async (side?: unknown, path?: unknown, kind?: unknown) => {
+    async (side?: unknown, path?: unknown, kind?: unknown, provider?: unknown) => {
+      const service = await serviceFor(provider);
       if (
+        !service ||
         (side !== "local" && side !== "remote") ||
         typeof path !== "string" ||
         (kind !== "added" && kind !== "modified" && kind !== "deleted")
@@ -385,7 +598,7 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       );
       let onlineUri: vscode.Uri | undefined;
       if (hasOnline) {
-        const online = await readOnline(path);
+        const online = await readOnline(service, path);
         if (online === "gone") {
           void vscode.window.showInformationMessage(Strings.sync.diff.gone(path));
           return;
@@ -420,9 +633,51 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     }
   );
 
+  // The Diff button of the Sync page: the difference between this file and the online one, whatever the kind of change.
+  // With only one of the two it opens that one and says that there is nothing to compare it with.
+  registerSafeCommand(
+    context,
+    logger,
+    Commands.syncDiffFile,
+    async (path?: unknown, provider?: unknown) => {
+      const service = await serviceFor(provider);
+      if (!service || typeof path !== "string" || path.length === 0) {
+        return;
+      }
+      const localUri = pathGuard.resolveRelative(path);
+      const name = path.slice(path.lastIndexOf("/") + 1);
+      const hasLocal = await fileExists(localUri);
+      // "gone" (a file that is not online, such as a new one) is not a problem here: it only means there is no second side.
+      const online = await readOnline(service, path);
+      if (online === undefined) {
+        return; // Binary or too big: readOnline said so.
+      }
+      if (hasLocal && online !== "gone") {
+        await vscode.commands.executeCommand(
+          "vscode.diff",
+          online,
+          localUri,
+          Strings.sync.diff.localTitle(name)
+        );
+      } else if (hasLocal) {
+        void vscode.window.showInformationMessage(Strings.sync.diff.notOnline(path));
+        await vscode.commands.executeCommand(Commands.openNoteFile, localUri);
+      } else if (online !== "gone") {
+        void vscode.window.showInformationMessage(Strings.sync.diff.notHere(path));
+        const document = await vscode.workspace.openTextDocument(online);
+        await vscode.window.showTextDocument(document, { preview: true });
+      } else {
+        void vscode.window.showInformationMessage(Strings.sync.diff.neither(path));
+      }
+    }
+  );
+
   /** The online version of a file as a read-only document, or why there is none. */
-  const readOnline = async (path: string): Promise<vscode.Uri | "gone" | undefined> => {
-    const bytes = await syncService.readRemoteFile(path);
+  const readOnline = async (
+    service: SyncService,
+    path: string
+  ): Promise<vscode.Uri | "gone" | undefined> => {
+    const bytes = await service.readRemoteFile(path);
     if (bytes === undefined) {
       return "gone";
     }
@@ -437,21 +692,107 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
     return onlineView.add(path, Buffer.from(bytes).toString("utf8"));
   };
 
-  registerSafeCommand(context, logger, Commands.syncForgetKey, async () => {
-    const connection = syncService.connection;
-    if (!connection) {
-      throw new SyncRefusedError(Strings.sync.notConnected);
+  registerSafeCommand(context, logger, Commands.syncForgetKey, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service?.connection;
+    if (!service || !connection) {
+      return;
     }
     if (!connection.encryption) {
       void vscode.window.showInformationMessage(Strings.sync.encryption.notEncrypted);
       return;
     }
-    await syncService.forgetKey();
+    await service.forgetKey();
     showStatus(Strings.sync.encryption.forgetDone, 2);
   });
 
-  registerSafeCommand(context, logger, Commands.syncChangeKey, async () => {
-    const connection = await prepareConnection();
+  // How the encrypted files are named online: kept (note.md.enc) or hidden. The files are sealed again, so the master key is asked.
+  registerSafeCommand(context, logger, Commands.syncChangeNames, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service ? await prepareConnection(service) : undefined;
+    if (!service) {
+      return;
+    }
+    if (!connection) {
+      return;
+    }
+    if (!connection.encryption) {
+      void vscode.window.showInformationMessage(Strings.sync.encryption.notEncrypted);
+      return;
+    }
+    const names = await askNameMode();
+    if (names === undefined) {
+      return;
+    }
+    if (names === connection.encryption.names) {
+      void vscode.window.showInformationMessage(Strings.sync.encryption.changeNamesSame);
+      return;
+    }
+    const label = connection.target.label;
+    const answer = await vscode.window.showWarningMessage(
+      Strings.sync.encryption.changeNamesConfirm(label),
+      { modal: true },
+      Strings.sync.encryption.changeNamesAction
+    );
+    if (answer !== Strings.sync.encryption.changeNamesAction) {
+      return;
+    }
+    const dropHistory = await askDropHistory();
+    if (dropHistory === undefined) {
+      return;
+    }
+    const masterKey = await askNewMasterKey();
+    if (masterKey === undefined) {
+      return;
+    }
+    await withProgress(Strings.sync.encryption.working, () =>
+      service.changeMasterKey({ masterKey, dropHistory, names })
+    );
+    void vscode.window.showInformationMessage(Strings.sync.encryption.changeNamesDone(label));
+  });
+
+  // Turns the encryption of the target off: every note goes online as plain text and the sealed files, the header and the index are removed.
+  registerSafeCommand(
+    context,
+    logger,
+    Commands.syncDecryptRepository,
+    async (argument?: unknown) => {
+      const service = await serviceFor(argument);
+      const connection = service ? await prepareConnection(service) : undefined;
+      if (!service || !connection) {
+        return;
+      }
+      if (!connection.encryption) {
+        void vscode.window.showInformationMessage(Strings.sync.encryption.notEncrypted);
+        return;
+      }
+      const label = connection.target.label;
+      const answer = await vscode.window.showWarningMessage(
+        Strings.sync.encryption.decryptConfirm(label),
+        { modal: true, detail: Strings.sync.encryption.decryptDetail },
+        Strings.sync.encryption.decryptAction
+      );
+      if (answer !== Strings.sync.encryption.decryptAction) {
+        return;
+      }
+      // Only a service that can rewrite its history asks about it.
+      const dropHistory = connection.provider.canLimitHistory ? await askDropHistory() : false;
+      if (dropHistory === undefined) {
+        return;
+      }
+      await withProgress(Strings.sync.encryption.working, () =>
+        service.decryptRepository({ dropHistory })
+      );
+      void vscode.window.showInformationMessage(Strings.sync.encryption.decryptDone(label));
+    }
+  );
+
+  registerSafeCommand(context, logger, Commands.syncChangeKey, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    const connection = service ? await prepareConnection(service) : undefined;
+    if (!service) {
+      return;
+    }
     if (!connection) {
       return;
     }
@@ -477,20 +818,22 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       return;
     }
     await withProgress(Strings.sync.encryption.working, () =>
-      syncService.changeMasterKey({ masterKey, dropHistory })
+      service.changeMasterKey({ masterKey, dropHistory })
     );
     void vscode.window.showInformationMessage(Strings.sync.encryption.changeKeyDone(label));
   });
 
-  registerSafeCommand(context, logger, Commands.syncEncryptRepository, async () => {
-    const connection = await prepareConnection();
-    if (!connection) {
-      return;
-    }
-    if (connection.encryption) {
-      void vscode.window.showInformationMessage(Strings.sync.encryption.alreadyEncrypted);
-      return;
-    }
+  /**
+   * Encrypts the notes of the connected target: the questions of the command (confirm, names, which notes, the older versions,
+   * the master key), then the work. With `scope` "chosen" only the files and folders of the list are sealed and the
+   * question about which notes is not asked. An empty target has nothing to convert, so it is just set up for encryption.
+   * Returns false when the user backed out.
+   */
+  const encryptRepositoryFlow = async (
+    service: SyncService,
+    connection: SyncConnection,
+    scope: "ask" | "chosen"
+  ): Promise<boolean> => {
     const label = connection.target.label;
     const answer = await vscode.window.showWarningMessage(
       Strings.sync.encryption.convertConfirm(label),
@@ -498,59 +841,176 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
       Strings.sync.encryption.convertAction
     );
     if (answer !== Strings.sync.encryption.convertAction) {
-      return;
+      return false;
     }
     const names = await askNameMode();
     if (names === undefined) {
-      return;
+      return false;
+    }
+    const custom = scope === "chosen" ? true : await askScope();
+    if (custom === undefined) {
+      return false;
+    }
+    const kind = await withProgress(Strings.sync.checking, () =>
+      service.inspectTarget(connection.provider, connection.target)
+    );
+    if (kind.kind === "empty") {
+      // Nothing online yet: no older versions to drop. The first push writes the sealed notes.
+      const masterKey = await askNewMasterKey();
+      if (masterKey === undefined) {
+        return false;
+      }
+      const config = await service.prepareEncryption(
+        connection.provider,
+        connection.target,
+        names,
+        masterKey,
+        custom
+      );
+      await service.connect(connection.provider, connection.target, config);
+      return true;
     }
     const dropHistory = await askDropHistory();
     if (dropHistory === undefined) {
-      return;
+      return false;
     }
     const masterKey = await askNewMasterKey();
     if (masterKey === undefined) {
-      return;
+      return false;
     }
     await withProgress(Strings.sync.encryption.working, () =>
-      syncService.encryptRepository({ names, masterKey, dropHistory })
+      service.encryptRepository({ names, custom, masterKey, dropHistory })
     );
     void vscode.window.showInformationMessage(
       Strings.sync.encryption.convertDone(label, dropHistory)
     );
-  });
+    return true;
+  };
+
+  registerSafeCommand(
+    context,
+    logger,
+    Commands.syncEncryptRepository,
+    async (argument?: unknown) => {
+      const service = await serviceFor(argument);
+      const connection = service ? await prepareConnection(service) : undefined;
+      if (!service) {
+        return;
+      }
+      if (!connection) {
+        return;
+      }
+      if (connection.encryption) {
+        void vscode.window.showInformationMessage(Strings.sync.encryption.alreadyEncrypted);
+        return;
+      }
+      await encryptRepositoryFlow(service, connection, "ask");
+    }
+  );
 
   // ----- refresh, push, pull -----
 
-  registerSafeCommand(context, logger, Commands.syncRefresh, async () => {
-    if (await prepareConnection()) {
-      await refresh();
+  registerSafeCommand(context, logger, Commands.syncRefresh, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    if (service && (await prepareConnection(service))) {
+      await refresh(service);
     }
   });
 
-  registerSafeCommand(context, logger, Commands.syncPush, () => runPush({ afterPull: false }));
-
-  registerSafeCommand(context, logger, Commands.syncPull, async () => {
-    if (await prepareConnection()) {
-      await runPull();
+  registerSafeCommand(context, logger, Commands.syncPush, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    if (service) {
+      await runPush(service, { afterPull: false });
     }
+  });
+
+  registerSafeCommand(context, logger, Commands.syncPull, async (argument?: unknown) => {
+    const service = await serviceFor(argument);
+    if (service && (await prepareConnection(service))) {
+      await runPull(service);
+    }
+  });
+
+  // ----- the same action for every connected service, one after the other -----
+
+  /**
+   * Runs `action` for each connected service, one after the other (only one sync action runs at a time). A service that fails
+   * does not stop the others: its error is shown with its name. Nothing happens when no service is connected.
+   */
+  const forEachConnected = async (
+    action: (service: SyncService) => Promise<void>
+  ): Promise<void> => {
+    const services = hub.connected;
+    if (services.length === 0) {
+      throw new SyncRefusedError(Strings.sync.notConnected);
+    }
+    for (const service of services) {
+      try {
+        await action(service);
+      } catch (error) {
+        logger.error(`Sync action failed for ${service.provider.id}.`, error);
+        void vscode.window.showErrorMessage(
+          Strings.sync.allFailed(
+            service.provider.label,
+            error instanceof NoteRootError ? error.message : Strings.sync.allFailedUnknown
+          )
+        );
+      }
+    }
+  };
+
+  registerSafeCommand(context, logger, Commands.syncRefreshAll, () =>
+    forEachConnected(async (service) => {
+      if (await prepareConnection(service)) {
+        await refresh(service);
+      }
+    })
+  );
+
+  registerSafeCommand(context, logger, Commands.syncPullAll, () =>
+    forEachConnected(async (service) => {
+      if (await prepareConnection(service)) {
+        await runPull(service);
+      }
+    })
+  );
+
+  // One message for every push (asked once, unless the setting uses the default one).
+  registerSafeCommand(context, logger, Commands.syncPushAll, async () => {
+    const defaultMessage = Strings.sync.defaultCommitMessage(
+      new Date().toISOString().slice(0, 16).replace("T", " ")
+    );
+    const message = settings.syncAutoMessage
+      ? defaultMessage
+      : await vscode.window.showInputBox({
+          prompt: Strings.sync.commitMessagePrompt,
+          value: defaultMessage,
+          validateInput: (value) =>
+            value.trim().length === 0 ? Strings.sync.commitMessageEmpty : undefined,
+        });
+    if (message === undefined) {
+      return;
+    }
+    await forEachConnected((service) =>
+      runPush(service, { afterPull: false, message: message.trim() })
+    );
   });
 
   // ----- the check for a new version -----
 
   registerSafeCommand(context, logger, Commands.enableSyncAutoCheck, async () => {
-    await syncService.setAutoCheck(true);
+    await hub.setAutoCheck(true);
     void vscode.window.showInformationMessage(
-      Strings.sync.autoCheckOn(syncService.connection?.provider.versionNoun ?? "version")
+      Strings.sync.autoCheckOn(hub.connected[0]?.provider.versionNoun ?? "version")
     );
   });
   registerSafeCommand(context, logger, Commands.disableSyncAutoCheck, async () => {
-    await syncService.setAutoCheck(false);
+    await hub.setAutoCheck(false);
     showStatus(Strings.sync.autoCheckOff);
   });
 
   context.subscriptions.push(
-    syncService.onDidFindNewVersion((connection) => {
+    hub.onDidFindNewVersion((connection) => {
       void vscode.window
         .showInformationMessage(
           Strings.sync.newOnline(connection.target.label, connection.provider.versionNoun),
@@ -558,7 +1018,7 @@ export function registerSyncCommands(deps: SyncCommandDependencies): void {
         )
         .then((choice) => {
           if (choice === Strings.sync.showActions) {
-            return vscode.commands.executeCommand(FOCUS_SYNC_VIEW);
+            syncPage.open();
           }
           return undefined;
         });
@@ -575,6 +1035,31 @@ async function fileExists(uri: vscode.Uri): Promise<boolean> {
   } catch {
     return false; // Not there.
   }
+}
+
+interface ScopeItem extends vscode.QuickPickItem {
+  custom: boolean;
+}
+
+/** Asks what is encrypted: every file, or only the files and folders of the list. Undefined when the user cancelled. */
+async function askScope(): Promise<boolean | undefined> {
+  const items: ScopeItem[] = [
+    {
+      label: Strings.sync.encryption.scopeAll,
+      detail: Strings.sync.encryption.scopeAllDetail,
+      custom: false,
+    },
+    {
+      label: Strings.sync.encryption.scopeCustom,
+      detail: Strings.sync.encryption.scopeCustomDetail,
+      custom: true,
+    },
+  ];
+  const picked = await vscode.window.showQuickPick(items, {
+    title: Strings.sync.encryption.scopeTitle,
+    placeHolder: Strings.sync.encryption.scopePlaceholder,
+  });
+  return picked?.custom;
 }
 
 interface NameModeItem extends vscode.QuickPickItem {
@@ -838,76 +1323,29 @@ function unsavedNotes(pathGuard: PathGuard): number {
   ).length;
 }
 
-interface ResolutionItem extends vscode.QuickPickItem {
-  resolution: Resolution;
-}
-
-/** Asks what to keep for the files that changed here and online. Undefined cancels the pull. */
-const resolveConflicts: ConflictResolver = async (conflicts) => {
+/**
+ * Puts in effect what the user chose for the files that changed here and online (in the Conflicts of the Sync page). A file with
+ * no choice is **not asked about in a pop-up**: the pull stops (undefined) and `onBlocked` gets those paths, so the command can
+ * send the user to the Conflicts.
+ */
+async function resolveConflicts(
+  conflicts: readonly ConflictRequest[],
+  chosen: ReadonlyMap<string, Resolution>,
+  onBlocked: (paths: string[]) => void
+): Promise<ReadonlyMap<string, Resolution> | undefined> {
   const decisions = new Map<string, Resolution>();
-  if (conflicts.length > 1) {
-    const answer = await vscode.window.showWarningMessage(
-      Strings.sync.conflictsFound(conflicts.length),
-      { modal: true, detail: Strings.sync.conflictDetail },
-      Strings.sync.reviewOneByOne,
-      Strings.sync.keepAllMine,
-      Strings.sync.keepAllTheirs
-    );
-    if (answer === undefined) {
-      return undefined;
-    }
-    if (answer === Strings.sync.keepAllMine || answer === Strings.sync.keepAllTheirs) {
-      const resolution: Resolution = answer === Strings.sync.keepAllMine ? "mine" : "theirs";
-      for (const conflict of conflicts) {
-        decisions.set(conflict.path, resolution);
-      }
-      return decisions;
+  const open: string[] = [];
+  for (const conflict of conflicts) {
+    const choice = chosen.get(conflict.path);
+    if (choice && (choice !== "both" || conflict.canKeepBoth)) {
+      decisions.set(conflict.path, choice);
+    } else {
+      open.push(conflict.path);
     }
   }
-  for (const conflict of conflicts) {
-    const picked = await vscode.window.showQuickPick(optionsFor(conflict), {
-      title: Strings.sync.conflictTitle(conflict.path, conflict.kind),
-      placeHolder: Strings.sync.conflictDetail,
-    });
-    if (!picked) {
-      return undefined;
-    }
-    decisions.set(conflict.path, picked.resolution);
+  if (open.length > 0) {
+    onBlocked(open);
+    return undefined;
   }
   return decisions;
-};
-
-function optionsFor(conflict: ConflictRequest): ResolutionItem[] {
-  if (conflict.kind === "remote-deleted") {
-    return [
-      { label: Strings.sync.keepMine, detail: Strings.sync.keepMineDetail, resolution: "mine" },
-      {
-        label: Strings.sync.deleteMine,
-        detail: Strings.sync.deleteMineDetail,
-        resolution: "theirs",
-      },
-    ];
-  }
-  if (conflict.kind === "local-deleted") {
-    return [
-      {
-        label: Strings.sync.keepDeleted,
-        detail: Strings.sync.keepDeletedDetail,
-        resolution: "mine",
-      },
-      { label: Strings.sync.restore, detail: Strings.sync.restoreDetail, resolution: "theirs" },
-    ];
-  }
-  const options: ResolutionItem[] = [
-    { label: Strings.sync.keepMine, detail: Strings.sync.keepMineDetail, resolution: "mine" },
-    { label: Strings.sync.keepTheirs, detail: Strings.sync.keepTheirsDetail, resolution: "theirs" },
-  ];
-  if (conflict.canKeepBoth) {
-    options.push({
-      label: Strings.sync.keepBoth,
-      detail: Strings.sync.keepBothDetail,
-      resolution: "both",
-    });
-  }
-  return options;
 }
