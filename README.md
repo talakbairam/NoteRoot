@@ -24,7 +24,7 @@ A walkthrough opens on first start. You can reopen it from the Welcome page (**G
 
 Your notes are plain files in a folder you pick. NoteRoot is built so you can trust it with them:
 
-- **No telemetry, and no network unless you ask.** NoteRoot sends nothing anywhere by itself. The only feature that uses the network is **Sync**: it does nothing until you connect a service (GitHub today), and then it talks to that service only when you press a button (or switch on the optional check for new changes). NoteRoot never stores your GitHub token (VS Code keeps it). It has no runtime dependencies.
+- **No telemetry, and no network unless you ask.** NoteRoot sends nothing anywhere by itself. The only feature that uses the network is the optional **Sync**: it does nothing until you connect a service, and then it talks to that service only when you press a button (or switch on the optional check for new changes). Sign-in tokens are kept in the secret storage of VS Code, never in your notes.
 - **Your files, no lock-in.** Notes are normal files. The only thing NoteRoot adds is one small `.noteroot/config.json` in your notes folder.
 - **It stays inside your notes folder.** Every file operation is checked to stay inside it. Links to folders are shown but never followed.
 - **Nothing is deleted or overwritten silently.** Delete goes to the Trash. Name conflicts ask first.
@@ -39,6 +39,7 @@ Your notes are plain files in a folder you pick. NoteRoot is built so you can tr
 - **Search.** Find notes by file name or by text. A result opens at its line and is shown in the tree. It reads text files up to 1 MB and shows the first 200 results.
 - **Pinned and Recent.** Pin the notes you need most; the last ones you opened are listed under them. Both follow a note when you rename or move it.
 - **Note header.** Write a header once (for example a comment with a few fields such as *Summary* and *Comment*) and every new note starts with it. **Add ▸ Header** puts it into an existing note.
+- **More sync services (optional).** GitLab, Dropbox and Google Drive work like GitHub, with the same pages and options. Each needs a one-time setup (a token, or an app key for your own Dropbox app); the Sync page shows the steps. You can connect several at once.
 - **Hide what you don't want.** **Hide from NoteRoot** keeps a file or folder out of the tree, search and tags; **Show Hidden Items** brings them back in the tree. **Don't Auto-Tag** keeps them out of automatic tagging only.
 
 ### Writing and tagging
@@ -52,18 +53,13 @@ Your notes are plain files in a folder you pick. NoteRoot is built so you can tr
 
 ### Everywhere
 
-- **Sync.** Push your notes to GitHub and pull them on another computer, with no git and no other app. It can be encrypted. See below.
-- **Settings panel.** Every setting is in one panel, with its value: click a row to change it, right-click to reset it or show it in the VS Code Settings editor. Settings that belong to your notes are saved in the notes folder, so they travel with it (and with Sync); those are not in the VS Code Settings editor. The panel has four groups:
-- **Settings page.** The pencil button of the Settings panel opens all settings in an editor tab, with search, an *Only changed* filter, defaults and Reset.
+- **Sync.** Push your notes to GitHub, GitLab, Dropbox or Google Drive and pull them on another computer, with no git and no other app. It can be encrypted. See below.
+- **Settings page.** Every setting is in one page (**Open Settings Page** in the `...` menu of the Notes view), with search, defaults and Reset. Settings that belong to your notes are saved in the notes folder, so they travel with it (and with Sync).
 - **Tags & Categories page.** The pencil button of the Tags & Categories panel opens everything in an editor tab: categories, tags, tag patterns, the categories of every file and the two automatic switches, with their notes and files.
-  - **Notes:** the notes folder, sort order, default extension, hidden files and folders, the large file warning, the note header and which file types count as notes.
-  - **Quick Note:** the Quick Note file, where new notes go (start or end), the heading and date format above each note, the line with the tags, and *Tag when saving*.
-  - **Tags & Categories:** the Advanced options, *Category for every file* and *Tag from pattern* switches (and whether they start on), and the files and folders that are never tagged automatically.
-  - **More:** limits and small details, such as recent notes to keep, search length and results, undo steps, double click time, how long messages stay, and *Ask before deleting*.
 
 ## Sync
 
-Open the **Actions** panel and choose **Connect to a Sync Service**. VS Code signs you in to GitHub (NoteRoot never sees your password), then you pick a repository or create a private one. No git is needed, and more services can be added later.
+Choose **Open Sync Page** in the `...` menu of the Notes view and connect a service. For GitHub, VS Code signs you in (NoteRoot never sees your password); then you pick a repository or create a private one. No git is needed.
 
 - **Push** sends your changes as one commit, **Pull** brings the online ones, **Refresh** compares. Click a file for a diff. Nothing contacts the service until you press a button.
 - A file changed on both sides is a **conflict**: keep yours, the online one, or both. Replaced and deleted files go to the Trash first.

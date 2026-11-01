@@ -3,6 +3,7 @@ import { Logger } from "../services/Logger";
 import { PathGuard } from "../services/PathGuard";
 import { RootFolderService } from "../services/RootFolderService";
 import { NoteItem } from "./NoteItem";
+import type { NotesNode } from "./NotesNode";
 import { NotesTreeProvider } from "./NotesTreeProvider";
 
 const REVEAL_RETRY_DELAY_MS = 300;
@@ -15,7 +16,7 @@ export const MAX_EXPAND_ALL_FOLDERS = 300;
  * controller, which in turn needs this navigator.
  */
 export class TreeNavigator {
-  private treeView: vscode.TreeView<NoteItem> | undefined;
+  private treeView: vscode.TreeView<NotesNode> | undefined;
 
   constructor(
     private readonly provider: NotesTreeProvider,
@@ -24,12 +25,13 @@ export class TreeNavigator {
     private readonly logger: Logger
   ) {}
 
-  attach(treeView: vscode.TreeView<NoteItem>): void {
+  attach(treeView: vscode.TreeView<NotesNode>): void {
     this.treeView = treeView;
   }
 
+  /** The selected files and folders (the Pinned and Recent group rows are not items). */
   get selection(): readonly NoteItem[] {
-    return this.treeView?.selection ?? [];
+    return (this.treeView?.selection ?? []).filter((item) => item instanceof NoteItem);
   }
 
   /** Re-reads the folder state (for example `empty` to `ready`) and the tree. */
@@ -61,7 +63,7 @@ export class TreeNavigator {
     let expanded = 0;
     while (queue.length > 0) {
       const parent = queue.shift();
-      for (const child of await this.provider.getChildren(parent)) {
+      for (const child of await this.provider.getFolderChildren(parent)) {
         if (child.kind !== "folder") {
           continue;
         }
@@ -100,7 +102,7 @@ export class TreeNavigator {
   }
 
   private async tryReveal(
-    treeView: vscode.TreeView<NoteItem>,
+    treeView: vscode.TreeView<NotesNode>,
     item: NoteItem,
     focus: boolean
   ): Promise<boolean> {

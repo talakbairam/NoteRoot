@@ -2,7 +2,7 @@
   "name": "noteroot",
   "displayName": "NoteRoot",
   "description": "Notes in a folder you choose: a notes tree, a Quick Note box, tags and categories, and optional encrypted sync to GitHub.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "talakbairam",
   "license": "GPL-3.0",
   "repository": {
@@ -78,26 +78,6 @@
           "name": "Tags & Categories",
           "type": "tree",
           "icon": "media/noteroot.svg"
-        },
-        {
-          "id": "noteRoot.recent",
-          "name": "Pinned & Recent",
-          "type": "tree",
-          "icon": "media/noteroot.svg"
-        },
-        {
-          "id": "noteRoot.sync",
-          "name": "Actions",
-          "type": "tree",
-          "icon": "media/noteroot.svg",
-          "visibility": "collapsed"
-        },
-        {
-          "id": "noteRoot.settings",
-          "name": "Settings",
-          "type": "tree",
-          "icon": "media/noteroot.svg",
-          "visibility": "collapsed"
         }
       ]
     },
@@ -118,23 +98,9 @@
         "when": "noteRoot.state == empty"
       },
       {
-        "view": "noteRoot.recent",
-        "contents": "Nothing here yet. Notes you open appear under Recent, and a note you pin stays under Pinned: right-click a note and choose Pin Note."
-      },
-      {
         "view": "noteRoot.labels",
         "contents": "Select a notes folder to use tags and categories.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
         "when": "!noteRoot.hasRoot"
-      },
-      {
-        "view": "noteRoot.sync",
-        "contents": "Select a notes folder to use Sync.\n[Select Notes Folder](command:noteRoot.selectRootFolder)",
-        "when": "!noteRoot.hasRoot"
-      },
-      {
-        "view": "noteRoot.sync",
-        "contents": "Keep your notes in sync with an online service to back them up and to open them on another computer. GitHub is available now, with no git and no other app needed.\n[Connect to a Sync Service](command:noteRoot.syncConnect)\nNothing is sent until you press Push.",
-        "when": "noteRoot.hasRoot && !noteRoot.syncConnected"
       }
     ],
     "commands": [
@@ -224,6 +190,22 @@
         "title": "Auto-Tag Again"
       },
       {
+        "command": "noteRoot.excludeFromSync",
+        "title": "Don't Sync"
+      },
+      {
+        "command": "noteRoot.includeInSync",
+        "title": "Sync Again"
+      },
+      {
+        "command": "noteRoot.encryptInSync",
+        "title": "Encrypt in Sync"
+      },
+      {
+        "command": "noteRoot.dontEncryptInSync",
+        "title": "Don't Encrypt in Sync"
+      },
+      {
         "command": "noteRoot.showHiddenItems",
         "title": "Show Hidden Items",
         "category": "NoteRoot"
@@ -231,6 +213,36 @@
       {
         "command": "noteRoot.hideHiddenItems",
         "title": "Hide Hidden Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.showNoTagItems",
+        "title": "Show No-Tag Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.hideNoTagItems",
+        "title": "Hide No-Tag Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.showEncryptedItems",
+        "title": "Show Encrypted Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.hideEncryptedItems",
+        "title": "Hide Encrypted Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.showUnsyncedItems",
+        "title": "Show Not-Synced Items",
+        "category": "NoteRoot"
+      },
+      {
+        "command": "noteRoot.hideUnsyncedItems",
+        "title": "Hide Not-Synced Items",
         "category": "NoteRoot"
       },
       {
@@ -281,24 +293,32 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "noteRoot.enablePinned",
+        "title": "Show Pinned Notes",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "noteRoot.disablePinned",
+        "title": "Hide Pinned Notes",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "noteRoot.enableRecent",
+        "title": "Show Recent Notes",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "noteRoot.disableRecent",
+        "title": "Hide Recent Notes",
+        "icon": "$(eye-closed)"
+      },
+      {
         "command": "noteRoot.removeFromRecent",
         "title": "Remove from Recent"
       },
       {
         "command": "noteRoot.revealInTree",
         "title": "Reveal in Notes Tree"
-      },
-      {
-        "command": "noteRoot.editSetting",
-        "title": "Change Setting…"
-      },
-      {
-        "command": "noteRoot.resetSetting",
-        "title": "Reset to Default"
-      },
-      {
-        "command": "noteRoot.showSettingInEditor",
-        "title": "Show in Settings Editor"
       },
       {
         "command": "noteRoot.openAllSettings",
@@ -343,6 +363,34 @@
         "title": "NoteRoot: Change the Master Key"
       },
       {
+        "command": "noteRoot.syncChangeNames",
+        "title": "NoteRoot: Change How Encrypted Files Are Named…"
+      },
+      {
+        "command": "noteRoot.syncOpenOnline",
+        "title": "NoteRoot: Sync: Open the Online Page in the Browser"
+      },
+      {
+        "command": "noteRoot.syncDecryptRepository",
+        "title": "NoteRoot: Sync: Turn Off Encryption…"
+      },
+      {
+        "command": "noteRoot.syncRefreshAll",
+        "title": "NoteRoot: Sync: Check All Services"
+      },
+      {
+        "command": "noteRoot.syncPullAll",
+        "title": "NoteRoot: Sync: Pull from All Services"
+      },
+      {
+        "command": "noteRoot.syncPushAll",
+        "title": "NoteRoot: Sync: Push to All Services"
+      },
+      {
+        "command": "noteRoot.syncChooseConflict",
+        "title": "NoteRoot: Sync: Choose the Version to Keep for a Conflict"
+      },
+      {
         "command": "noteRoot.syncEncryptRepository",
         "title": "NoteRoot: Encrypt the Notes of This Repository"
       },
@@ -355,6 +403,19 @@
         "command": "noteRoot.syncPush",
         "title": "NoteRoot: Push Notes",
         "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "noteRoot.openSyncPage",
+        "title": "NoteRoot: Open Sync Page",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "noteRoot.syncMarkedAction",
+        "title": "NoteRoot: Sync: Marked Files in a Plain Repository…"
+      },
+      {
+        "command": "noteRoot.syncAutoMessage",
+        "title": "NoteRoot: Sync: Turn On or Off Push Without Asking for a Message"
       },
       {
         "command": "noteRoot.syncPull",
@@ -435,8 +496,7 @@
       },
       {
         "command": "noteRoot.changeQuickNoteFile",
-        "title": "NoteRoot: Change Quick Note File",
-        "icon": "$(file-symlink-file)"
+        "title": "NoteRoot: Change Quick Note File"
       },
       {
         "command": "noteRoot.pasteAndSave",
@@ -580,14 +640,9 @@
           "group": "navigation@5"
         },
         {
-          "command": "noteRoot.clearRecent",
-          "when": "view == noteRoot.recent",
-          "group": "navigation@1"
-        },
-        {
           "command": "noteRoot.changeQuickNoteFile",
           "when": "view == noteRoot.quickNote",
-          "group": "navigation@1"
+          "group": "9_options@0"
         },
         {
           "command": "noteRoot.enableAdvanced",
@@ -600,9 +655,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "noteRoot.manageLabels",
-          "when": "view == noteRoot.quickNote && noteRoot.advanced",
-          "group": "9_options@2"
+          "command": "noteRoot.openSyncPage",
+          "when": "view == noteRoot.tree",
+          "group": "4_settings@0"
+        },
+        {
+          "command": "noteRoot.openSettingsPage",
+          "when": "view == noteRoot.tree",
+          "group": "4_settings@1"
         },
         {
           "command": "noteRoot.showHiddenItems",
@@ -615,14 +675,39 @@
           "group": "1_view@1"
         },
         {
+          "command": "noteRoot.showNoTagItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && !noteRoot.showNoTag",
+          "group": "1_view@2"
+        },
+        {
+          "command": "noteRoot.hideNoTagItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && noteRoot.showNoTag",
+          "group": "1_view@2"
+        },
+        {
+          "command": "noteRoot.showEncryptedItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && !noteRoot.showEncrypted",
+          "group": "1_view@3"
+        },
+        {
+          "command": "noteRoot.hideEncryptedItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && noteRoot.showEncrypted",
+          "group": "1_view@3"
+        },
+        {
+          "command": "noteRoot.showUnsyncedItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && !noteRoot.showUnsynced",
+          "group": "1_view@4"
+        },
+        {
+          "command": "noteRoot.hideUnsyncedItems",
+          "when": "view == noteRoot.tree && noteRoot.state == ready && noteRoot.showUnsynced",
+          "group": "1_view@4"
+        },
+        {
           "command": "noteRoot.changeRootFolder",
           "when": "view == noteRoot.tree",
           "group": "2_folder@1"
-        },
-        {
-          "command": "noteRoot.openConfigFile",
-          "when": "view == noteRoot.settings && noteRoot.hasRoot",
-          "group": "2_files@1"
         },
         {
           "command": "noteRoot.revealRootInOS",
@@ -635,16 +720,6 @@
           "group": "2_folder@3"
         },
         {
-          "command": "noteRoot.showLogs",
-          "when": "view == noteRoot.settings",
-          "group": "2_files@2"
-        },
-        {
-          "command": "noteRoot.sortBy",
-          "when": "view == noteRoot.settings && noteRoot.state == ready",
-          "group": "1_notes@1"
-        },
-        {
           "command": "noteRoot.undo",
           "when": "view == noteRoot.tree && noteRoot.state == ready",
           "group": "1_edit@1"
@@ -653,11 +728,6 @@
           "command": "noteRoot.decryptClipboard",
           "when": "view == noteRoot.tree",
           "group": "3_encrypt@1"
-        },
-        {
-          "command": "noteRoot.quickNoteOptions",
-          "when": "view == noteRoot.quickNote",
-          "group": "9_options@1"
         },
         {
           "command": "noteRoot.refreshLabels",
@@ -688,76 +758,6 @@
           "command": "noteRoot.disableAutoTagPatterns",
           "when": "view == noteRoot.labels && noteRoot.hasRoot && noteRoot.autoTagPatterns",
           "group": "navigation@1"
-        },
-        {
-          "command": "noteRoot.openSettingsPage",
-          "when": "view == noteRoot.settings",
-          "group": "navigation@0"
-        },
-        {
-          "command": "noteRoot.openAllSettings",
-          "when": "view == noteRoot.settings",
-          "group": "navigation@1"
-        },
-        {
-          "command": "noteRoot.syncRefresh",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "navigation@0"
-        },
-        {
-          "command": "noteRoot.syncPull",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "navigation@1"
-        },
-        {
-          "command": "noteRoot.syncPush",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "navigation@2"
-        },
-        {
-          "command": "noteRoot.syncChangeRepository",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "1_repository@1"
-        },
-        {
-          "command": "noteRoot.syncDisconnect",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "1_repository@2"
-        },
-        {
-          "command": "noteRoot.syncHistory",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "1_repository@3"
-        },
-        {
-          "command": "noteRoot.syncHidden",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected",
-          "group": "1_repository@4"
-        },
-        {
-          "command": "noteRoot.syncEncryptRepository",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected && !noteRoot.syncEncrypted",
-          "group": "3_encryption@1"
-        },
-        {
-          "command": "noteRoot.syncChangeKey",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncEncrypted",
-          "group": "3_encryption@2"
-        },
-        {
-          "command": "noteRoot.syncForgetKey",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncEncrypted",
-          "group": "3_encryption@3"
-        },
-        {
-          "command": "noteRoot.enableSyncAutoCheck",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected && !noteRoot.syncAutoCheck",
-          "group": "2_check@1"
-        },
-        {
-          "command": "noteRoot.disableSyncAutoCheck",
-          "when": "view == noteRoot.sync && noteRoot.syncConnected && noteRoot.syncAutoCheck",
-          "group": "2_check@1"
         }
       ],
       "commandPalette": [
@@ -846,6 +846,22 @@
           "when": "noteRoot.hasRoot"
         },
         {
+          "command": "noteRoot.enablePinned",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.disablePinned",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.enableRecent",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.disableRecent",
+          "when": "false"
+        },
+        {
           "command": "noteRoot.changeQuickNoteFile",
           "when": "noteRoot.hasRoot"
         },
@@ -903,6 +919,22 @@
         },
         {
           "command": "noteRoot.includeInTagging",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.excludeFromSync",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.includeInSync",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.encryptInSync",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.dontEncryptInSync",
           "when": "false"
         },
         {
@@ -966,6 +998,34 @@
           "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
         },
         {
+          "command": "noteRoot.syncDecryptRepository",
+          "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
+        },
+        {
+          "command": "noteRoot.syncChangeNames",
+          "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
+        },
+        {
+          "command": "noteRoot.syncOpenOnline",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncRefreshAll",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncPullAll",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncPushAll",
+          "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.syncChooseConflict",
+          "when": "false"
+        },
+        {
           "command": "noteRoot.syncForgetKey",
           "when": "noteRoot.syncConnected && noteRoot.syncEncrypted"
         },
@@ -980,6 +1040,18 @@
         {
           "command": "noteRoot.syncPush",
           "when": "noteRoot.syncConnected"
+        },
+        {
+          "command": "noteRoot.openSyncPage",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.syncMarkedAction",
+          "when": "noteRoot.hasRoot"
+        },
+        {
+          "command": "noteRoot.syncAutoMessage",
+          "when": "noteRoot.hasRoot"
         },
         {
           "command": "noteRoot.syncPull",
@@ -1070,18 +1142,6 @@
           "when": "noteRoot.activeInRoot && editorHasSelection"
         },
         {
-          "command": "noteRoot.editSetting",
-          "when": "false"
-        },
-        {
-          "command": "noteRoot.resetSetting",
-          "when": "false"
-        },
-        {
-          "command": "noteRoot.showSettingInEditor",
-          "when": "false"
-        },
-        {
           "command": "noteRoot.openAllSettings"
         },
         {
@@ -1095,6 +1155,30 @@
         {
           "command": "noteRoot.hideHiddenItems",
           "when": "noteRoot.hasRoot && noteRoot.showHidden"
+        },
+        {
+          "command": "noteRoot.showNoTagItems",
+          "when": "noteRoot.hasRoot && !noteRoot.showNoTag"
+        },
+        {
+          "command": "noteRoot.hideNoTagItems",
+          "when": "noteRoot.hasRoot && noteRoot.showNoTag"
+        },
+        {
+          "command": "noteRoot.showEncryptedItems",
+          "when": "noteRoot.hasRoot && !noteRoot.showEncrypted"
+        },
+        {
+          "command": "noteRoot.hideEncryptedItems",
+          "when": "noteRoot.hasRoot && noteRoot.showEncrypted"
+        },
+        {
+          "command": "noteRoot.showUnsyncedItems",
+          "when": "noteRoot.hasRoot && !noteRoot.showUnsynced"
+        },
+        {
+          "command": "noteRoot.hideUnsyncedItems",
+          "when": "noteRoot.hasRoot && noteRoot.showUnsynced"
         }
       ],
       "view/item/context": [
@@ -1125,12 +1209,12 @@
         },
         {
           "command": "noteRoot.rename",
-          "when": "view == noteRoot.tree",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder|symlinkFolder|other)/",
           "group": "4_modify@1"
         },
         {
           "command": "noteRoot.delete",
-          "when": "view == noteRoot.tree",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder|symlinkFolder|other)/",
           "group": "4_modify@2"
         },
         {
@@ -1139,28 +1223,53 @@
           "group": "2_open@4"
         },
         {
+          "command": "noteRoot.clearRecent",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.recent.on",
+          "group": "inline@1"
+        },
+        {
+          "command": "noteRoot.enablePinned",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.pinned.off",
+          "group": "inline@2"
+        },
+        {
+          "command": "noteRoot.disablePinned",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.pinned.on",
+          "group": "inline@2"
+        },
+        {
+          "command": "noteRoot.enableRecent",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.recent.off",
+          "group": "inline@2"
+        },
+        {
+          "command": "noteRoot.disableRecent",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.recent.on",
+          "group": "inline@2"
+        },
+        {
           "command": "noteRoot.revealInTree",
-          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.recentItem",
           "group": "1_navigate@1"
         },
         {
           "command": "noteRoot.removeFromRecent",
-          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.recentItem",
           "group": "2_modify@1"
         },
         {
           "command": "noteRoot.pinNote",
-          "when": "view == noteRoot.recent && viewItem == noteRoot.recentItem",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.recentItem",
           "group": "2_modify@0"
         },
         {
           "command": "noteRoot.revealInTree",
-          "when": "view == noteRoot.recent && viewItem == noteRoot.pinnedItem",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedItem",
           "group": "1_navigate@1"
         },
         {
           "command": "noteRoot.unpinNote",
-          "when": "view == noteRoot.recent && viewItem == noteRoot.pinnedItem",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedItem",
           "group": "2_modify@1"
         },
         {
@@ -1219,21 +1328,6 @@
           "group": "1_modify@2"
         },
         {
-          "command": "noteRoot.editSetting",
-          "when": "view == noteRoot.settings && viewItem =~ /^noteRoot\\.setting\\b/ && viewItem != noteRoot.settingGroup",
-          "group": "1_edit@1"
-        },
-        {
-          "command": "noteRoot.resetSetting",
-          "when": "view == noteRoot.settings && viewItem =~ /\\.changed$/",
-          "group": "1_edit@2"
-        },
-        {
-          "command": "noteRoot.showSettingInEditor",
-          "when": "view == noteRoot.settings && viewItem =~ /^noteRoot\\.setting\\.key/",
-          "group": "2_show@1"
-        },
-        {
           "command": "noteRoot.tagNote",
           "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.locked)/",
           "group": "2_open@5"
@@ -1254,18 +1348,38 @@
           "group": "6_exclude@2"
         },
         {
+          "command": "noteRoot.excludeFromSync",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.nosync)/",
+          "group": "6_exclude@4"
+        },
+        {
+          "command": "noteRoot.includeInSync",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder).*\\.nosync/",
+          "group": "6_exclude@4"
+        },
+        {
+          "command": "noteRoot.encryptInSync",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.locked)(?!.*\\.sealed)/",
+          "group": "6_exclude@3"
+        },
+        {
+          "command": "noteRoot.dontEncryptInSync",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)(?!.*\\.locked).*\\.sealed/",
+          "group": "6_exclude@3"
+        },
+        {
           "command": "noteRoot.revealInOS",
-          "when": "view == noteRoot.tree",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder|symlinkFolder|other)/",
           "group": "2_open@3"
         },
         {
           "command": "noteRoot.copyPath",
-          "when": "view == noteRoot.tree",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder|symlinkFolder|other)/",
           "group": "3_copy@1"
         },
         {
           "command": "noteRoot.copyRelativePath",
-          "when": "view == noteRoot.tree",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder|symlinkFolder|other)/",
           "group": "3_copy@2"
         },
         {
@@ -1297,6 +1411,36 @@
           "command": "noteRoot.decryptNote",
           "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.file.*\\.locked/",
           "group": "7_encrypt@2"
+        },
+        {
+          "command": "noteRoot.syncConnect",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.syncStatus.off",
+          "group": "1_sync@1"
+        },
+        {
+          "command": "noteRoot.syncPush",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.syncStatus\\.(clean|dirty)$/",
+          "group": "1_sync@1"
+        },
+        {
+          "command": "noteRoot.syncPull",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.syncStatus\\.(clean|dirty)$/",
+          "group": "1_sync@2"
+        },
+        {
+          "command": "noteRoot.syncRefresh",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.syncStatus\\.(clean|dirty)$/",
+          "group": "1_sync@3"
+        },
+        {
+          "command": "noteRoot.openSyncPage",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.syncStatus\\./",
+          "group": "2_page@1"
+        },
+        {
+          "command": "noteRoot.syncDisconnect",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.syncStatus\\.(clean|dirty)$/",
+          "group": "3_disconnect@1"
         }
       ],
       "editor/context": [
@@ -1581,6 +1725,6 @@
     "npm-run-all": "^4.1.5",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.2"
+    "typescript-eslint": "^8.72.0"
   }
 }

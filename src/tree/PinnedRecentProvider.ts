@@ -1,43 +1,24 @@
 import * as vscode from "vscode";
-import { Strings } from "../constants/strings";
 import { PinnedNotesService } from "../services/PinnedNotesService";
+import { PinnedRecentSwitches } from "../services/PinnedRecentSwitches";
 import { RecentNotesService } from "../services/RecentNotesService";
 import { NoteItem } from "./NoteItem";
-import { NotesTreeProvider } from "./NotesTreeProvider";
-
-/** Context values of the notes in the view, used by its context menu. */
-export const RECENT_ITEM_CONTEXT = "noteRoot.recentItem";
-export const PINNED_ITEM_CONTEXT = "noteRoot.pinnedItem";
-
-export type PinnedRecentGroup = "pinned" | "recent";
-
-/** "Pinned" or "Recent": the two groups of the view. */
-export class PinnedRecentGroupItem extends vscode.TreeItem {
-  constructor(
-    readonly group: PinnedRecentGroup,
-    count: number
-  ) {
-    super(
-      group === "pinned" ? Strings.pinnedRecent.pinned : Strings.pinnedRecent.recent,
-      vscode.TreeItemCollapsibleState.Expanded
-    );
-    this.id = `pinnedrecent:${group}`;
-    this.description = String(count);
-    this.iconPath = new vscode.ThemeIcon(group === "pinned" ? "pinned" : "history");
-    this.contextValue = "noteRoot.pinnedRecentGroup";
-  }
-}
-
-export type PinnedRecentNode = NoteItem | PinnedRecentGroupItem;
+import type { NotesTreeProvider } from "./NotesTreeProvider";
+import {
+  PINNED_ITEM_CONTEXT,
+  PinnedRecentGroupItem,
+  RECENT_ITEM_CONTEXT,
+  type NotesNode,
+  type PinnedRecentGroup,
+} from "./NotesNode";
 
 /**
  * "Pinned & Recent": the notes the user pinned (in the order they were pinned) and the notes opened last (newest first), in two
- * groups. A group that has no notes is not shown, and a view with nothing in it shows the welcome text. A click opens the note.
- * The same note can be in both groups, so the ids of the rows carry the group.
+ * groups at the top of the Notes tree. Both groups are always there, with their count (also 0). A group that is switched off
+ * shows no notes and says "off". A click opens the note. The same note can be in both groups, so the ids of the rows carry
+ * the group.
  */
-export class PinnedRecentProvider
-  implements vscode.TreeDataProvider<PinnedRecentNode>, vscode.Disposable
-{
+export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>, vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   private readonly subscriptions: vscode.Disposable[];
   /** The notes of both groups, read when the view asks for the groups and kept until something changes. */
@@ -48,7 +29,8 @@ export class PinnedRecentProvider
   constructor(
     private readonly recentService: RecentNotesService,
     private readonly pinnedService: PinnedNotesService,
-    private readonly treeProvider: NotesTreeProvider
+    private readonly treeProvider: NotesTreeProvider,
+    private readonly switches: PinnedRecentSwitches
   ) {
     const changed = (): void => {
       this.cache = undefined;
@@ -58,30 +40,28 @@ export class PinnedRecentProvider
       this.changeEmitter,
       recentService.onDidChange(changed),
       pinnedService.onDidChange(changed),
+      switches.onDidChange(changed),
     ];
   }
 
-  getTreeItem(element: PinnedRecentNode): vscode.TreeItem {
+  getTreeItem(element: NotesNode): vscode.TreeItem {
     return element;
   }
 
-  async getChildren(element?: PinnedRecentNode): Promise<PinnedRecentNode[]> {
-    if (element instanceof NoteItem) {
-      return [];
+  async getChildren(element?: NotesNode): Promise<NotesNode[]> {
+    if (element && !(element instanceof PinnedRecentGroupItem)) {
+      return []; // A note, or the blank row: no children.
     }
     if (element) {
-      return (await this.read())[element.group];
+      // A group that is off keeps its notes (the pins stay in the config file) but does not show them.
+      return this.switches.isEnabled(element.group) ? (await this.read())[element.group] : [];
     }
     this.cache = undefined; // The view asks for the top again when it is refreshed: read the notes again.
     const notes = await this.read();
-    return [
-      ...(notes.pinned.length > 0
-        ? [new PinnedRecentGroupItem("pinned", notes.pinned.length)]
-        : []),
-      ...(notes.recent.length > 0
-        ? [new PinnedRecentGroupItem("recent", notes.recent.length)]
-        : []),
-    ];
+    return (["pinned", "recent"] as const).map(
+      (group) =>
+        new PinnedRecentGroupItem(group, notes[group].length, this.switches.isEnabled(group))
+    );
   }
 
   dispose(): void {

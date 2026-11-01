@@ -43,6 +43,7 @@ export class RecentNotesService implements vscode.Disposable {
   private readonly subscriptions: vscode.Disposable[] = [];
   private entries: string[] = [];
   private loadedKey: string | undefined;
+  private recording = true;
 
   /** Fires when the list changed. */
   readonly onDidChange = this.changeEmitter.event;
@@ -110,7 +111,15 @@ export class RecentNotesService implements vscode.Disposable {
     vscode.Disposable.from(...this.subscriptions).dispose();
   }
 
+  /** Turns the remembering of new notes on or off (the Recent switch). The list that exists is kept as it is. */
+  setRecording(value: boolean): void {
+    this.recording = value;
+  }
+
   private recordTab(tab: vscode.Tab): void {
+    if (!this.recording) {
+      return;
+    }
     const uri = uriOfTab(tab);
     const relativePath =
       uri && this.pathGuard.isInsideRoot(uri, { allowRoot: false })

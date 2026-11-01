@@ -4,6 +4,31 @@ All notable changes to NoteRoot are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-01
+
+### Added
+
+- **More sync services**: GitLab (personal access token), Google Drive and Dropbox (sign-in in the browser), next to GitHub. A notes folder can use several at once, each with its own status and options.
+- **Sync page**: it starts with the list of services; each service has Overview, Changes (with a Diff for each file and a Conflicts list), Options and Encryption. Settings that are the same for every service are in one section, **For all services**. Check all, Pull all and Push all run an action on every connected service.
+- **Sync rows** at the top of the Notes tree show the state of each connected service (right-click for Push, Pull and more).
+- **Encrypt only the files you choose**: right-click ▸ **Encrypt in Sync** / **Don't Encrypt in Sync**. A Push to a plain repository that has marked files asks what to do with them. **Turn off the encryption** and **Change How Encrypted Files Are Named** are new too.
+- **Files not synced**: right-click ▸ **Don't Sync** / **Sync Again**, or the setting **Files and folders not synced**.
+- **Conflicts** are solved on the Sync page (Keep mine, Keep online or Keep both for each file) instead of in pop-ups.
+- **Settings page**: sections in a menu on the left, a last section with Open Config File, Show Logs and All settings in VS Code, and the rarely changed settings under **Advanced**. It also shows the secrets kept on this computer, with a Reset and a **Forget** for each saved key.
+- **Show No-Tag Items** and **Show Encrypted Items** switches; marked items get a colour in the Notes tree.
+
+### Changed
+
+- **Pinned and Recent** are the first rows of the Notes tree instead of views of their own, each with an on/off button.
+- **Tags & Categories** has the same layout as the Settings page.
+- The **Settings view** and the **Actions view** are gone; their buttons are on the Settings page and the Sync page.
+- Push does not ask for a message any more (it uses the default one), a marked file in a plain repository is encrypted by default, and only the connected services get a row in the Notes tree. A choice you saved before is kept.
+- A setting that is set back to its default is no longer saved.
+
+### Fixed
+
+- The list **Files and folders without tagging** was ignored when it was saved in the notes folder.
+
 ## [0.2.0] - 2026-10-21
 
 ### Added

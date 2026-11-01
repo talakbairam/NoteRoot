@@ -8,7 +8,7 @@ body {
 }
 
 main {
-	max-width: 860px;
+	max-width: 1100px;
 	margin: 0 auto;
 }
 
@@ -69,7 +69,7 @@ button:focus-visible {
 }
 
 section {
-	margin-top: 24px;
+	margin-top: 0;
 }
 
 .section-head {
@@ -115,9 +115,28 @@ h2 {
 	margin: 8px 0 0;
 }
 
-.item {
-	padding: 4px 0;
-	border-bottom: 1px solid var(--vscode-widget-border, transparent);
+/* The lines of a section are in one frame, divided by thin lines, like the options of the other pages. */
+.options {
+	margin-top: 12px;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.options[hidden] {
+	display: none;
+}
+
+.options > .item {
+	padding: 12px 16px;
+}
+
+/* The explanation of a switch, on the left of the line that holds it. */
+.hint-text {
+	color: var(--vscode-descriptionForeground);
+}
+
+.options > .item + .item {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
 }
 
 .item-head {
@@ -253,4 +272,80 @@ button.link.danger {
 
 #none[hidden] {
 	display: none;
+}
+
+/* A menu of sections on the left, the chosen section on the right (the same as the Settings page). */
+.layout {
+	display: grid;
+	grid-template-columns: 190px minmax(0, 1fr);
+	gap: 8px 28px;
+	align-items: start;
+	margin-top: 8px;
+}
+
+.nav {
+	position: sticky;
+	top: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+button.nav-item {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 8px;
+	padding: 6px 10px;
+	text-align: left;
+	color: var(--vscode-foreground);
+	background: none;
+	border: none;
+	border-left: 2px solid transparent;
+	border-radius: 0;
+	font-family: inherit;
+	font-size: inherit;
+	cursor: pointer;
+}
+
+button.nav-item:hover {
+	background: var(--vscode-list-hoverBackground);
+}
+
+button.nav-item[aria-current='true'] {
+	font-weight: 600;
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.nav-count {
+	color: var(--vscode-descriptionForeground);
+	font-weight: normal;
+}
+
+.content {
+	min-width: 0;
+}
+
+/* A narrow tab: the menu becomes a row above the lists. */
+@media (max-width: 640px) {
+	.layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.nav {
+		position: static;
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
+
+	button.nav-item {
+		border-left: none;
+		border-bottom: 2px solid transparent;
+	}
+
+	button.nav-item[aria-current='true'] {
+		border-bottom-color: var(--vscode-focusBorder);
+	}
 }

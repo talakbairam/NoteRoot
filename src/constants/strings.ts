@@ -47,9 +47,22 @@ export const Strings = {
     invalidShape: "The config file does not have the expected structure.",
   },
 
+  syncRow: {
+    label: (service: string): string => `${service} Sync`,
+    notConnected: "Not connected",
+    connectTip: "Sync: not connected. Right-click to connect",
+    cleanTip: "Sync: everything is in sync. Right-click for the actions",
+    dirtyTip: "Sync: there are changes. Right-click to push",
+  },
   pinnedRecent: {
     pinned: "Pinned",
     recent: "Recent",
+    off: "off",
+    separator: "Separator",
+    pinnedOn: "Pinned notes are shown again.",
+    pinnedOff: "Pinned notes are hidden. They stay pinned.",
+    recentOn: "Recent notes are shown again and new ones are remembered.",
+    recentOff: "Recent notes are hidden and new ones are not remembered.",
   },
   tree: {
     open: "Open",
@@ -58,8 +71,16 @@ export const Strings = {
       `This file is ${size}. Opening it may slow down VS Code. Open anyway?`,
     hiddenMark: "hidden",
     noTagMark: "no tags",
+    unsyncedMark: "not synced",
+    encryptedMark: "encrypted",
+    encryptedShown: 'Items that the sync encrypts are marked "encrypted".',
+    encryptedHidden: 'The "encrypted" marks are hidden again.',
+    unsyncedShown: 'Items that the sync leaves alone are marked "not synced".',
+    unsyncedHidden: 'The "not synced" marks are hidden again.',
     hiddenShown: 'Hidden items are shown, marked "hidden".',
     hiddenHidden: "Hidden items are hidden again.",
+    noTagShown: 'Items left out of automatic tagging are marked "no tags".',
+    noTagHidden: 'The "no tags" marks are hidden again.',
     tooltipPath: "Path",
     tooltipSize: "Size",
     tooltipModified: "Modified",
@@ -128,6 +149,8 @@ export const Strings = {
   settingsPage: {
     title: "NoteRoot Settings",
     intro: "Review and change every NoteRoot setting. A change is saved as soon as you make it.",
+    advancedNote:
+      "Limits and fine tuning that most people never change. The defaults are fine; they are here for when you need them.",
     searchLabel: "Search settings",
     searchPlaceholder: "Search settings",
     onlyChanged: "Only changed",
@@ -136,6 +159,7 @@ export const Strings = {
     sourceFolder: "this folder",
     sourceUser: "your settings",
     reset: "Reset",
+    forgetKey: "Forget",
     change: "Change…",
     apply: "Apply",
     listHint: "One entry per line.",
@@ -145,9 +169,43 @@ export const Strings = {
     units: { mb: "MB", ms: "ms", px: "px", s: "s", count: "" },
     saved: "Saved",
     defaultLabel: "Default:",
+    toolsTitle: "Files and logs",
+    tools: {
+      openConfigFile: {
+        label: "Config file",
+        description:
+          "The file .noteroot/config.json in the notes folder, where the categories, tags, pins and the settings that travel with the notes are kept.",
+        button: "Open",
+      },
+      showLogs: {
+        label: "Logs",
+        description: "The NoteRoot output, to see what it did and why something failed.",
+        button: "Show",
+      },
+      openAllSettings: {
+        label: "All settings in VS Code",
+        description: "Opens the VS Code Settings editor with the NoteRoot settings.",
+        button: "Open",
+      },
+    },
   },
   settingsView: {
-    groups: { notes: "Notes", quickNote: "Quick Note", tags: "Tags & Categories", more: "More" },
+    groups: {
+      notes: "Notes",
+      tree: "Tree & Search",
+      quickNote: "Quick Note",
+      tags: "Tags & Categories",
+      sync: "Sync & Encryption",
+      advanced: "Advanced",
+    },
+    subgroups: {
+      synced: "What is synced",
+      accounts: "Accounts",
+      saved: "Saved sign-ins and keys",
+      limits: "Limits",
+      tuning: "Fine tuning",
+      startup: "On at the start",
+    },
     items: {
       rootPath: {
         label: "Notes folder",
@@ -182,13 +240,14 @@ export const Strings = {
         description: "Each new Quick Note is added at the end of its file or at the start of it.",
       },
       quickNoteHeadingLevel: {
-        label: "Heading above each note",
-        description: "How the date and time above each Quick Note is written.",
+        label: "Heading level",
+        description:
+          "How the heading above each Quick Note is written: as a Markdown heading of this level (# to ####), or as plain text.",
       },
       quickNoteTimestampFormat: {
         label: "Date and time format",
         description:
-          "The text of the heading above each Quick Note. YYYY, MM, DD, HH, mm and ss stand for the parts of the date. Empty means no heading.",
+          "The date and time in the heading above each Quick Note. YYYY, MM, DD, HH, mm and ss stand for the parts of the date. Empty means no heading.",
       },
       quickNoteTagLine: {
         label: "Line with the tags",
@@ -208,7 +267,7 @@ export const Strings = {
       maxRecentNotes: {
         label: "Recent notes to keep",
         description:
-          "How many notes the Recent panel remembers (1 to 100). Saved with the notes folder.",
+          "How many notes the Recent group of the Notes tree remembers (1 to 100). Saved with the notes folder.",
       },
       maxTextFileSizeMB: {
         label: "Largest file to read",
@@ -295,6 +354,76 @@ export const Strings = {
         description:
           "Names and patterns (with * and ?) of files and folders that automatic tagging leaves alone: Run Tagging and Tag when saving skip them. Don't Auto-Tag in the tree adds an entry. Saved with the notes folder.",
       },
+      syncAutoMessage: {
+        label: "Push without asking for a message",
+        description:
+          "Push does not ask for the message of the new version: it uses the default one (NoteRoot sync, with the date and the time). On by default. Saved with the notes folder.",
+      },
+      syncIgnorePatterns: {
+        label: "Files and folders not synced",
+        description:
+          "The sync leaves these alone, with every service: they are not sent, not brought and not listed in the changes, but they stay in the tree and the search. One pattern per line, like the list of hidden items (/folder, name, *.tmp). A file that is already online is not deleted from there. Saved with the notes folder.",
+      },
+      dropboxAppKey: {
+        label: "Dropbox app key",
+        description:
+          "The App key of your own Dropbox app (Dropbox App Console ▸ Settings). The Dropbox sync needs it to sign in; it is not a secret. Saved with the notes folder.",
+      },
+      gitlabAddress: {
+        label: "GitLab address",
+        description:
+          "The address of the GitLab that the GitLab sync uses: https://gitlab.com, or the address of your company's GitLab. Only https addresses are used. Saved with the notes folder; the token is asked when you connect and kept on this computer.",
+      },
+      savedGitlabToken: {
+        label: "Saved GitLab token",
+        description:
+          "Whether the personal access token of GitLab is saved in the secret storage of VS Code on this computer (never shown). Reset forgets it: the next Connect asks for a token.",
+      },
+      savedGoogleSignIn: {
+        label: "Saved Google sign-in",
+        description:
+          "Whether the sign-in to Google is saved in the secret storage of VS Code on this computer (never shown). Reset forgets it: the next Connect opens the browser.",
+      },
+      savedDropboxSignIn: {
+        label: "Saved Dropbox sign-in",
+        description:
+          "Whether the sign-in to Dropbox is saved in the secret storage of VS Code on this computer (never shown). Reset forgets it: the next Connect opens the browser.",
+      },
+      savedMasterKeys: {
+        label: "Saved keys of encrypted sync",
+        description:
+          "How many keys made from a master key are saved in the secret storage of VS Code on this computer (the master key itself is never saved). Reset forgets them all: the master key is asked again when it is needed.",
+      },
+      googleClientPlace: {
+        label: "Google client: where to keep it",
+        description:
+          "Where the id and the secret of your Google client (Google Drive sync) are kept: in the config file of the notes folder (the default: .noteroot/config.json, so they travel with the notes; the Sync sends that file too, so do not use it for a public repository), or on this computer only (a file of the extension). Never in your VS Code settings.",
+      },
+      googleClientId: {
+        label: "Google client id",
+        description:
+          "The Client ID of your own Google project (OAuth client of type Desktop app) for the Google Drive sync. Empty: the one that comes with NoteRoot, if there is one. Changing it signs you out of Google.",
+      },
+      googleClientSecret: {
+        label: "Google client secret",
+        description:
+          "The Client secret of the same project. It is hidden here and never shown again; type a new one to replace it, or use Reset to remove it. Changing it signs you out of Google.",
+      },
+      syncRows: {
+        label: "Sync rows in the Notes tree",
+        description:
+          "Which sync services get a row at the top of the Notes tree: every service (so one that is not connected can be connected from there), only the one that is connected, or none. Saved with the notes folder.",
+      },
+      syncMarkedAction: {
+        label: "A marked file in a plain repository",
+        description:
+          "What Push does with a file on the list of the files to encrypt when the repository is not encrypted: ask every time, send it as plain text, leave it out of the push, or encrypt the marked files first. Saved with the notes folder.",
+      },
+      encryptPatterns: {
+        label: "Files and folders to encrypt in the sync",
+        description:
+          "Names and patterns (with * and ?) of the files and folders that the sync encrypts when the repository is set to encrypt only the chosen files. Everything else goes online as plain text. Encrypt in Sync in the tree adds an entry. Saved with the notes folder.",
+      },
       noteHeader: {
         label: "Note header",
         description:
@@ -327,7 +456,6 @@ export const Strings = {
     seconds: (count: number): string => `${count} s`,
     thresholdOff: "Off",
     defaultValue: (value: string): string => `Default: ${value}`,
-    thisFolder: "this folder",
     needsFolder: "Select a notes folder first: this setting is saved with the notes folder.",
     invalidRange: (min: number, max: number, integer: boolean): string =>
       `Enter ${integer ? "a whole number" : "a number"} from ${min} to ${max}.`,
@@ -336,38 +464,44 @@ export const Strings = {
     sourceFolder:
       "Saved with this notes folder (.noteroot/config.json). It wins over your VS Code setting.",
     sourceUser: "From your VS Code settings. Changing it here saves it with the notes folder.",
-    sourceDefault: "Not set. Changing it here saves it with the notes folder.",
     changed: "changed",
     sortChoices: { name: "Name", modified: "Date modified" },
     positionChoices: { end: "End of the file", start: "Start of the file" },
-    choiceTitle: (label: string): string => `Change: ${label}`,
-    choiceCurrent: "current",
-    textTitle: (label: string): string => `Change: ${label}`,
+    googleClientPlaceChoices: {
+      local: "On this computer only",
+      config: "In the notes folder (config file)",
+    },
+    secretSet: "••••••••",
+    syncRowsChoices: {
+      all: "Every service",
+      connected: "Only the connected service",
+      none: "None",
+    },
+    syncMarkedChoices: {
+      ask: "Ask every time",
+      plain: "Push as plain text",
+      skip: "Leave them out",
+      encrypt: "Encrypt the marked files",
+    },
     invalidExtension: "Start with a dot, then letters, digits, - or _ (for example .md or .txt).",
     invalidFormat: "Use one line of at most 60 characters.",
     invalidNumber: "Enter a number of 0 or more.",
+    savedHere: "Saved on this computer",
+    notSaved: "Not saved",
+    noneSaved: "None saved",
+    keysSaved: (count: number): string => (count === 1 ? "1 key saved" : `${count} keys saved`),
+    invalidDropboxAppKey: "Paste the App key as Dropbox shows it: letters and digits, no spaces.",
+    invalidHttpsAddress: "Write an https address, for example https://gitlab.com",
     emptyNotAllowed: "This cannot be empty.",
     invalidChoice: "This value is not allowed for this setting.",
     updated: (label: string): string => `${label} updated`,
     resetDone: (label: string): string => `${label} is back to its default`,
-    listTitle: (label: string): string => `Change: ${label}`,
-    listPlaceholder: "Pick an entry to change it, or add one",
-    listAdd: "$(add) Add entry…",
-    listReset: "$(discard) Back to the default list",
-    listNone: "The list is empty",
-    listEdit: "Change",
-    listDelete: "Delete",
-    listAddTitle: (label: string): string => `Add to: ${label}`,
-    listEditTitle: (entry: string): string => `Change '${entry}'`,
-    listEntryPrompt: "A name or a pattern, for example .DS_Store or *.tmp",
     listEntryEmpty: "Enter a name or a pattern.",
     listEntryDuplicate: (entry: string): string => `'${entry}' is in the list already.`,
-    switchedOn: (label: string): string => `${label}: on`,
-    switchedOff: (label: string): string => `${label}: off`,
   },
 
   header: {
-    noTemplate: "There is no header yet. Add its lines in the Settings panel, row Note header.",
+    noTemplate: "There is no header yet. Add its lines in the Settings page, row Note header.",
     noEditor: "Open a note in the editor first.",
     notInNotesFolder: "This file is not inside your notes folder.",
     nothingToAdd:
@@ -464,7 +598,6 @@ export const Strings = {
   search: {
     title: "Search Notes",
     placeholder: "Search file names and note contents",
-    minLength: "Type at least 2 characters.",
     noResults: (query: string): string => `No results for '${query}'.`,
     limited: (count: number): string =>
       `Showing the first ${count} results. Type more to narrow them down.`,
@@ -789,6 +922,229 @@ export const Strings = {
     cannotWriteInto: "An encrypted note cannot be written to. Decrypt it first.",
     lockedTooltip: "Encrypted note. Right-click it to decrypt.",
   },
+  syncPage: {
+    title: "NoteRoot Sync",
+    intro:
+      "Keep this notes folder on another computer through an online service. Nothing is sent until you press Push or Pull.",
+    searchLabel: "Search the files that changed",
+    searchPlaceholder: "Search the files that changed",
+    noMatches: "No changed file matches.",
+    overview: "Overview",
+    changes: "Changes",
+    options: "Options",
+    encryption: "Encryption",
+    providersTitle: "Services",
+    providersIntro: "Choose a service to see its status and what it can do.",
+    providerOpen: "Open",
+    providerNotConnected: "Not connected",
+    backToProviders: "‹ Services",
+    openOnline: "Open online",
+    githubUses: "Uses your GitHub account in VS Code",
+    githubHowTitle: "How to connect to GitHub",
+    githubStep1:
+      "Press Connect. NoteRoot uses the GitHub account of VS Code, so there is nothing to make or paste.",
+    githubStep2: "If VS Code asks, sign in to GitHub in the browser that opens and allow it once.",
+    githubStep3:
+      "Pick a repository, or make a new private one, and say whether to encrypt the notes.",
+    gitlabTokenSaved: "GitLab token saved ({address})",
+    gitlabTokenMissing: "No GitLab token yet: Connect asks for it",
+    gitlabHowTitle: "How to connect to GitLab (free, once)",
+    gitlabStep1:
+      "In GitLab: your picture ▸ Preferences ▸ Access tokens ▸ Add new token ▸ Legacy token.",
+    gitlabStep2:
+      "Name it NoteRoot, choose an expiration date, tick ONLY the scope api, and create it. Copy the token: GitLab shows it once.",
+    gitlabStep3:
+      "If your GitLab is not gitlab.com, write its address in the Settings page, Sync & Encryption (GitLab address).",
+    gitlabStep4: "Press Connect here and paste the token. It is kept on this computer only.",
+    dropboxKeySet: "Dropbox app key set",
+    dropboxKeyMissing: "Dropbox app key not set up",
+    dropboxHowTitle: "How to set up the Dropbox app (free, once)",
+    dropboxStep1:
+      "Open dropbox.com/developers/apps ▸ Create app ▸ Scoped access ▸ App folder ▸ a name (for example NoteRoot).",
+    dropboxStep2:
+      "Permissions: tick files.metadata.read, files.metadata.write, files.content.read and files.content.write, then Submit.",
+    dropboxStep3:
+      "Settings ▸ OAuth 2 ▸ Redirect URIs: write http://localhost:53682/ and press Add. Keep Allow public clients on.",
+    dropboxStep4:
+      "Settings: copy the App key into the Settings page, Sync & Encryption (Dropbox app key), then press Connect here and Allow.",
+    googleClientFromLocal: "Google client set (on this computer)",
+    googleClientFromConfig: "Google client set (in the notes folder)",
+    googleClientFromBuiltIn: "Google client set (comes with NoteRoot)",
+    googleClientMissingBoth: "Google client not set up: client id and secret are missing",
+    googleClientMissingId: "Google client not set up: client id is missing",
+    googleClientMissingSecret: "Google client not set up: client secret is missing",
+    googleClientHowTitle: "How to set up the Google client (free, once)",
+    googleClientHowIntro:
+      "Google needs an application id for the sign-in. You make one in your own Google account; nothing is sent to anyone else.",
+    googleClientStep1:
+      "Open console.cloud.google.com and make a new project (any name, for example NoteRoot).",
+    googleClientStep2:
+      "Menu ☰ ▸ APIs & Services ▸ Library ▸ Google Drive API ▸ Enable. Without this, the sign-in works but every push fails.",
+    googleClientStep3:
+      "Google Auth Platform ▸ Get started: App name NoteRoot, your email as support email, Audience External, your email as contact, agree to the policy, Create.",
+    googleClientStep4:
+      "Data Access ▸ Add or remove scopes. If the list is empty, paste https://www.googleapis.com/auth/drive.file in Manually add scopes ▸ Add to table ▸ Update ▸ Save.",
+    googleClientStep5:
+      "Audience ▸ Test users ▸ Add users: your own Google email. The app stays in Testing, so the sign-in ends after 7 days and you connect again. (Step 6 is optional.)",
+    googleClientStep6:
+      "Optional, so the sign-in does not end after 7 days: Branding ▸ add an Application home page link and an Application privacy policy link (public pages, for example the ones of your project) ▸ Save, then Audience ▸ Publish app. You do not need this for your own use.",
+    googleClientStep7:
+      "Clients ▸ Create client ▸ Application type Desktop app ▸ Create. Open it and copy the Client ID and the Client secret.",
+    googleClientStep8:
+      "Paste them into the Settings page, Sync & Encryption (Google client id, Google client secret), then press Connect here. On the page that says Google has not verified this app, press Continue, then Allow.",
+    openSyncSettings: "Open the Settings",
+    diff: "Diff",
+    diffTip: "Show the difference between your file and the online one",
+    notConnectedTitle: "This notes folder is not connected",
+    notConnectedHelp:
+      "Connect it to a service to push your notes online and pull them on another computer. The notes can be encrypted before they leave this computer.",
+    connect: "Connect…",
+    service: "Service",
+    privateText: "Private",
+    publicText: "Public: anyone can read it",
+    status: "Status",
+    allTitle: "For all the connected services",
+    allHelp: "One after the other. A service that cannot do it does not stop the others.",
+    checkAll: "Check all",
+    pullAll: "Pull all",
+    pushAll: "Push all",
+    checkAllTip: "Compare every connected service with its online copy",
+    pullAllTip: "Bring what changed online from every connected service",
+    pushAllTip: "Send what changed here to every connected service (one message for all)",
+    sharedTitle: "For all services",
+    sharedHelp: "These are the same for every service: you change them here, not in each service.",
+    advancedTitle: "Advanced",
+    versionWord: "version",
+    filesNotSynced: "Files not synced",
+    filesNotSyncedHelp:
+      "The files and folders that no service syncs: they are not sent, not brought and not listed in the changes ({n} in the list). You can also right-click an item in the Notes tree and choose Don't Sync.",
+    notSyncedBoxTitle: "Not synced",
+    notSyncedBoxHelp: "The files and folders you left out of the sync, as written.",
+    filesToEncrypt: "Files to encrypt",
+    filesToEncryptHelp:
+      "The files and folders that are encrypted when a service encrypts only the ones you choose ({n} in the list).",
+    actionsTitle: "What you can do",
+    pullHelp: "Bring what changed online into this folder.",
+    pushHelp: "Send what changed here online.",
+    disconnectHelp:
+      "Stop syncing this folder with this service. Nothing is deleted here or online.",
+    fixConflictsHelp:
+      "Files that changed here and online need your choice of which version to keep.",
+    countToPull: "{n} to pull",
+    countToPush: "{n} to push",
+    countConflicts: "{n} in conflict",
+    nothingToPull: "Nothing to pull",
+    nothingToPush: "Nothing to push",
+    checkNow: "Check now",
+    pull: "Pull",
+    push: "Push",
+    change: "Change…",
+    disconnect: "Disconnect",
+    localChanges: "Local changes",
+    remoteChanges: "Remote changes",
+    localHint: "Files here that are not online yet. Push sends them.",
+    remoteHint: "Files online that are not here yet. Pull brings them.",
+    nothingNew: "No changes.",
+    conflictsTitle: "Conflicts",
+    conflictsHint:
+      "Files that changed here and online. Choose which version to keep for each (the file here, or the one online, or both); then press Apply choices.",
+    choiceLabel: "What to keep:",
+    choiceMine: "Keep mine",
+    choiceMineTip: "Keep the file here (the next Push sends it online)",
+    choiceOnline: "Keep online",
+    choiceOnlineTip: "Keep the file online (the one here goes to the Trash)",
+    choiceBoth: "Keep both",
+    choiceBothTip: "Keep both: the online one is saved next to yours as name (online)",
+    fixConflicts: "Fix conflicts",
+    fixConflictsTip: "Go to the conflicts and choose which version to keep for each file",
+    chooseAllLabel: "The same for all the files:",
+    chooseAllMine: "Keep all mine",
+    chooseAllOnline: "Keep all online",
+    chosenCount: "{n} of {total} chosen",
+    applyChoices: "Apply choices",
+    applyChoicesTip:
+      "Pull: puts your choices in effect (the files you did not keep are moved to the Trash first)",
+    chooseEveryFile: "Choose for every file, then apply.",
+    noConflicts: "No conflicts.",
+    notChecked: "Not checked yet. Press Check now.",
+    conflict: "conflict",
+    history: "History",
+    historyHelp:
+      "How many versions the service keeps. Keeping fewer makes it small, but the older versions are gone.",
+    historyAll: "Every version",
+    historyLast: "The last {n} versions",
+    historyOne: "One version",
+    hiddenFiles: "Hidden files",
+    hiddenFilesHelp: "Also sync the files and folders that NoteRoot hides.",
+    included: "Included",
+    leftOut: "Left out",
+    autoCheck: "Check for new changes",
+    autoCheckHelp:
+      "Look for a new version every few minutes and when this window gets the focus. Nothing is changed by it.",
+    on: "On",
+    off: "Off",
+    turnOn: "Turn on",
+    turnOff: "Turn off",
+    notEncrypted:
+      "The notes go online as they are: anyone who can read the {target} can read them.",
+    encrypted: "The notes are sealed on this computer with your master key before they go online.",
+    namesPlain: "File names are kept (note.md.enc).",
+    namesHidden: "File names are hidden.",
+    scopeAll: "Every note is encrypted.",
+    scopeCustom:
+      "Only the files and folders you chose are encrypted ({n} in the list). The others go online as plain text.",
+    sealEncrypted: "encrypted",
+    sealListedPlain: "on the list, not encrypted",
+    filesTitle: "Notes that are encrypted",
+    filesListedTitle: "Notes on the list (not encrypted yet)",
+    filesHelp: "The notes of the folder that the list chooses.",
+    filesNone: "No note of the folder is on the list.",
+    filesMore: "…and more",
+    listEmpty:
+      "The list is empty: nothing is encrypted yet. Right-click a note or a folder and choose Encrypt in Sync.",
+    encryptHow:
+      "Encrypting seals each note on this computer with a master key (AES-256) before it goes online. Online there is only unreadable data. Only someone with the master key can read the notes, also on another computer.",
+    encryptAsksTitle: "Encrypt the notes… asks you for:",
+    encryptAsk1:
+      "Which notes: every note, or only the files and folders you choose (the others stay readable online).",
+    encryptAsk2: "The file names: kept (note.md.enc) or hidden.",
+    encryptAsk3: "The older versions: keep them (they stay readable) or drop them.",
+    encryptAsk4: "The master key, typed twice.",
+    keyWarning:
+      "The master key is never stored in the notes folder or online. If you lose it, the encrypted notes cannot be read by anyone.",
+    encryptNow: "Encrypt the notes…",
+    turnOffEncryption: "Turn off the encryption",
+    turnOffEncryptionHelp:
+      "Sends every note online as plain text and removes the encrypted files. The master key is asked once to open them.",
+    turnOffEncryptionButton: "Turn off…",
+    whichNotes: "Which notes",
+    scopeAllState: "Every note",
+    scopeCustomState: "Only the chosen",
+    fileNames: "File names",
+    namesKeptState: "Kept",
+    namesHiddenState: "Hidden",
+    masterKey: "Master key",
+    masterKeyHelp:
+      "A key made from the master key is kept in the secure storage of VS Code on this computer, so it is not asked every time. The master key itself is never stored in the notes folder or online: if you lose it, the encrypted notes cannot be read by anyone.",
+    keyState: "Never stored online",
+    listBoxTitle: "The list",
+    listBoxHelp: "The files and folders you chose, as written.",
+    autoMessage: "Message of a push",
+    autoMessageHelp:
+      "Push asks for the message of the new {version}. Turn this on to use the default one (NoteRoot sync and the date and the time) without asking.",
+    autoMessageOn: "Default, without asking",
+    autoMessageOff: "Ask every time",
+    markedAction: "A file to encrypt, in a service that is not encrypted",
+    markedActionHelp:
+      "What Push does with a file of the list of files to encrypt when the service it sends to is not encrypted: ask, send it as plain text, leave it out, or encrypt it.",
+    markedAsk: "Ask every time",
+    markedPlain: "Push as plain text",
+    markedSkip: "Leave them out",
+    markedEncrypt: "Encrypt the marked files",
+    changeKey: "Change the master key…",
+    forgetKey: "Forget the saved key",
+    editList: "Edit the list…",
+  },
   sync: {
     // The texts here do not name a service: they work for every provider (`SyncProvider`). The texts of one service are in its own part (`github`).
     group: (provider: string): string => `${provider} Sync`,
@@ -796,30 +1152,53 @@ export const Strings = {
     remoteChanges: "Remote changes",
     notChecked: "Not checked yet",
     remoteNotChecked: "Remote not checked yet",
-    remoteNotCheckedTooltip:
-      "The files here are compared with the last sync. Press Refresh to compare with the remote too.",
-    notCheckedShort: "not checked",
     changedHere: (count: number): string =>
       count === 1 ? "1 file changed here" : `${count} files changed here`,
-    notCheckedTooltip: "Press Refresh to compare this folder with the remote.",
     inSync: "Everything is in sync",
     nothingNew: "No changes",
     newVersion: (noun: string): string => `New ${noun} online`,
-    newVersionTooltip: (noun: string): string =>
-      `There is a new ${noun} online. Press Pull to bring it here.`,
     checking: "Checking…",
-    changeCount: (count: number): string => (count === 1 ? "1 file" : `${count} files`),
     conflict: "conflict",
     kind: { added: "new", modified: "changed", deleted: "deleted" },
-    targetTooltip: (
-      provider: string,
-      label: string,
-      detail: string | undefined,
-      isPrivate: boolean
-    ): string =>
-      `${label}${detail ? `, ${detail}` : ""} (${provider}, ${isPrivate ? "private" : "public"})`,
     checkedAt: (time: string): string => `Checked at ${time}`,
+    encryptedMark: "encrypted",
+    markedNotEncrypted: (count: number, noun: string): string =>
+      count === 1
+        ? `1 file is on the list of the files to encrypt, but this ${noun} is not encrypted.`
+        : `${count} files are on the list of the files to encrypt, but this ${noun} is not encrypted.`,
+    markedNotEncryptedDetail: (paths: readonly string[]): string => {
+      const shown = paths.slice(0, 5).map((path) => `  ${path}`);
+      const more = paths.length > 5 ? [`  … and ${paths.length - 5} more`] : [];
+      return [
+        "They would go online as plain text, readable by anyone who can read it:",
+        ...shown,
+        ...more,
+        "",
+        "Encrypt the marked files seals only these; every other note stays readable online. It asks for a master key.",
+        "Leave them out sends everything else and keeps them as changes here.",
+      ].join("\n");
+    },
+    pushPlainAction: "Push as Plain Text",
+    markedPickTitle: "A marked file in a plain repository",
+    markedPickPlaceholder: "What should Push do with a file on the list of the files to encrypt?",
+    markedPickAsk: "Ask every time",
+    markedPickAskDetail: "Show the question at each Push that has such a file.",
+    markedPickPlain: "Push as plain text",
+    markedPickPlainDetail: "The file goes online readable. Nothing is asked.",
+    markedPickSkip: "Leave them out of the push",
+    markedPickSkipDetail: "The rest is sent and the marked files stay as changes here.",
+    markedPickEncrypt: "Encrypt the marked files",
+    markedPickEncryptDetail:
+      "Only the marked files are sealed (the master key is asked), then the push goes on.",
+    encryptMarkedAction: "Encrypt the Marked Files, Then Push",
+    skipMarkedAction: "Leave Them Out of This Push",
 
+    noKeepBothConfig: "The settings file cannot be kept twice: choose mine or online.",
+    noWebPage: (service: string): string => `${service} has no web page for this folder to open.`,
+    allFailed: (service: string, reason: string): string => `${service}: ${reason}`,
+    allFailedUnknown: "The action did not work. See the logs for details.",
+    chooseServiceTitle: "Which sync service?",
+    chooseServicePlaceholder: "This notes folder is connected to more than one",
     chooseProviderTitle: "Where should the notes be synced?",
     chooseProviderPlaceholder: "Pick a service",
     signInFailed: (provider: string): string =>
@@ -846,13 +1225,13 @@ export const Strings = {
       `NoteRoot now checks every few minutes whether there is a new ${noun} online. It only asks for the latest one, nothing is downloaded.`,
     autoCheckOff: "NoteRoot no longer checks by itself.",
 
-    refreshed: (local: number, remote: number): string =>
-      local === 0 && remote === 0
+    refreshed: (local: number, remote: number, conflicts = 0): string =>
+      local === 0 && remote === 0 && conflicts === 0
         ? "Everything is in sync."
-        : `${local} to push, ${remote} to pull.`,
+        : `${local} to push, ${remote} to pull${conflicts > 0 ? `, ${conflicts} in conflict` : ""}.`,
     newOnline: (label: string, noun: string): string =>
-      `${label} has a new ${noun}. Open the Actions view and press Pull.`,
-    showActions: "Show Actions",
+      `${label} has a new ${noun}. Open the Sync page and press Pull.`,
+    showActions: "Open Sync Page",
 
     pullAction: "Pull",
     pullThenPush: "Pull, then Push",
@@ -896,7 +1275,6 @@ export const Strings = {
     historyOff: "Every commit is kept again from the next push.",
     historyUnsupported: (provider: string): string =>
       `${provider} cannot limit the history to its last commits.`,
-    keepLastTag: (count: number): string => (count === 1 ? "one commit" : `last ${count} commits`),
     pushing: "Pushing…",
     pushed: (count: number, label: string): string =>
       count === 1 ? `Pushed 1 file to ${label}.` : `Pushed ${count} files to ${label}.`,
@@ -924,38 +1302,13 @@ export const Strings = {
     },
     keptBoth: (names: string): string =>
       `The online versions were saved next to yours as: ${names}.`,
-    conflictsFound: (count: number): string =>
-      count === 1
-        ? "1 file was changed here and online. What should be kept?"
-        : `${count} files were changed here and online. What should be kept?`,
-    conflictDetail: "Nothing is overwritten without a copy: a file you replace goes to the Trash.",
-    reviewOneByOne: "Review One by One",
-    keepAllMine: "Keep All Mine",
-    keepAllTheirs: "Use All Online Versions",
-    keepMine: "Keep Mine",
-    keepTheirs: "Use the Online Version",
-    keepBoth: "Keep Both",
-    keepMineDetail: "This computer's file stays. It is pushed next time.",
-    keepTheirsDetail: "The online file replaces yours. Yours goes to the Trash.",
-    keepBothDetail: "Yours stays and the online one is saved next to it.",
-    deleteMineDetail: "The file is deleted here (to the Trash), like online.",
-    restoreDetail: "The online file comes back.",
-    keepDeletedDetail: "The file stays deleted here. The deletion is pushed next time.",
-    deleteMine: "Delete Mine",
-    restore: "Restore It",
-    keepDeleted: "Keep It Deleted",
-    conflictTitle: (
-      path: string,
-      kind: "both-changed" | "remote-deleted" | "local-deleted"
-    ): string =>
-      kind === "both-changed"
-        ? `${path}: changed here and online`
-        : kind === "remote-deleted"
-          ? `${path}: deleted online, changed here`
-          : `${path}: deleted here, changed online`,
+    fixConflictsFirst: (count: number): string =>
+      `${count === 1 ? "1 file was" : `${count} files were`} changed here and online. Go to the Sync page, Changes, Conflicts, choose what to keep for each, and apply the choices.`,
+    openConflicts: "Open the Conflicts",
+    unsavedBlocks: (count: number): string =>
+      `${count === 1 ? "1 note has" : `${count} notes have`} unsaved changes here and changed online too. Save ${count === 1 ? "it" : "them"}, then pull again.`,
     configInvalid: "The online config file is not valid, so it was left as it is.",
     truncatedTree: "The remote is too big to read in one go, so it cannot be synced here.",
-    unexpectedAnswer: "The service gave an answer that NoteRoot cannot read.",
 
     /** The texts of the diff of the Actions panel (`syncCommands.ts`). */
     diff: {
@@ -965,6 +1318,11 @@ export const Strings = {
         `${path} is not a text file, so there is nothing to compare.`,
       tooBig: (path: string): string => `${path} is too big to show here.`,
       gone: (path: string): string => `${path} is not online any more. Press Refresh.`,
+      notOnline: (path: string): string =>
+        `${path} is not online yet, so there is nothing to compare it with. Here is your file.`,
+      notHere: (path: string): string =>
+        `${path} is not here yet, so there is nothing to compare it with. Here is the online file.`,
+      neither: (path: string): string => `${path} is neither here nor online: nothing to compare.`,
     },
 
     /** The texts of the choice about hidden files (`syncCommands.ts`). */
@@ -987,6 +1345,22 @@ export const Strings = {
     },
 
     /** The texts of the encrypted sync (`EncryptedSyncProvider`, `syncCommands.ts`). */
+    ignore: {
+      added: (name: string, count: number): string =>
+        count === 1
+          ? `${name} is not synced any more: it is not sent, not brought and not listed in the changes. If it is online already, it stays there.`
+          : `${count} items are not synced any more: they are not sent, not brought and not listed in the changes. Whatever is online already stays there.`,
+      already: "Already not synced.",
+      removed: (name: string, count: number): string =>
+        count === 1
+          ? `${name} is synced again: it shows in the changes at the next check.`
+          : `${count} items are synced again: they show in the changes at the next check.`,
+      removePattern: (pattern: string): string =>
+        `"${pattern}" leaves this item and every other item it matches out of the sync. Remove this pattern from the list?`,
+      insideFolder: (name: string, folder: string): string =>
+        `${name} is inside the folder ${folder}, which is not synced. Sync that folder again instead.`,
+      nothing: "Nothing to change: it is left out by something else.",
+    },
     encryption: {
       headerUnreadable: "The encryption file of the repository cannot be read.",
       notEncryptedRepo:
@@ -1006,6 +1380,27 @@ export const Strings = {
       yes: "Yes, encrypt the notes",
       yesDetail:
         "Every note is sealed on this computer with a master key. Online there is only unreadable data.",
+      listAdded: (name: string, count: number): string =>
+        count === 1
+          ? `${name} is on the list of the files to encrypt in the sync. It is sent sealed at the next Push if the repository encrypts only the chosen files.`
+          : `${count} items are on the list of the files to encrypt in the sync. They are sent sealed at the next Push if the repository encrypts only the chosen files.`,
+      listAlready: "Already encrypted in the sync.",
+      listRemoved: (name: string, count: number): string =>
+        count === 1
+          ? `${name} is off the list of the files to encrypt in the sync. It goes online as plain text at the next Push if the repository encrypts only the chosen files.`
+          : `${count} items are off the list of the files to encrypt in the sync. They go online as plain text at the next Push if the repository encrypts only the chosen files.`,
+      listRemovePattern: (pattern: string): string =>
+        `"${pattern}" encrypts this item and every other item it matches. Remove this pattern from the list?`,
+      listInsideFolder: (name: string, folder: string): string =>
+        `${name} is inside the folder ${folder}, which is encrypted in the sync. Stop encrypting that folder instead.`,
+      listNothing: "Nothing to change: it is encrypted by something else.",
+      scopeTitle: "What is encrypted",
+      scopePlaceholder: "Choose which notes are sealed",
+      scopeAll: "Every note",
+      scopeAllDetail: "All the notes are sealed. Nothing readable goes online.",
+      scopeCustom: "Only the files and folders I choose",
+      scopeCustomDetail:
+        "Use Encrypt in Sync in the Notes tree to choose them. Every other note goes online as plain text, and a new note stays plain until you choose it.",
       namesTitle: "File names online",
       namesPlaceholder: "Choose what can be seen of the names",
       namesPlain: "Keep the file names",
@@ -1030,15 +1425,30 @@ export const Strings = {
         "The repository has no notes to encrypt. Connect to an empty repository to start it encrypted.",
       working: "Sealing the notes…",
       convertMessage: "Encrypt the notes with NoteRoot",
+      revealMessage: "Turn the encryption off",
       rekeyMessage: "Change the master key",
+      renameMessage: "Change how the encrypted files are named",
       changeKeyConfirm: (label: string): string =>
         `Change the master key of ${label}? Every note is sealed again with the new key. On your other computers you connect to it again and type the new key. The older commits stay sealed with the OLD key, so anyone who has it can still open them, unless you drop the history in the next step.`,
+      changeNamesConfirm: (label: string): string =>
+        `Change how the encrypted files of ${label} are named online? Every encrypted note is sealed again and sent as one new version. The master key is asked again: type the same one to keep it, or a new one (other computers must connect again if you change it).`,
+      changeNamesAction: "Change the Names",
+      changeNamesSame: "The file names already are like that.",
+      changeNamesDone: (label: string): string =>
+        `The encrypted files of ${label} are named in the new way.`,
       changeKeyAction: "Change the Key",
       changeKeyDone: (label: string): string =>
         `The master key of ${label} was changed. On your other computers, connect to it again and type the new key.`,
       convertConfirm: (label: string): string =>
         `Encrypt the notes of ${label}? Each note online is replaced by an encrypted copy. Files that NoteRoot does not sync (hidden ones, files over 25 MB...) stay as they are. The older commits still hold the plain notes unless you drop the history in the next step.`,
       convertAction: "Encrypt the Notes",
+      decryptConfirm: (label: string): string =>
+        `Turn off the encryption of ${label}? Every note is sent online as plain text and the encrypted files are removed.`,
+      decryptDetail:
+        "The master key is asked once to open the notes. Anyone who can see the online copy will be able to read the notes. The older versions keep the encrypted files (and any plain notes from before) unless you drop the history. Other computers that use this connection must connect again.",
+      decryptAction: "Turn Off Encryption",
+      decryptDone: (label: string): string =>
+        `The encryption of ${label} is off: the notes are online as plain text.`,
       convertDone: (label: string, dropped: boolean): string =>
         dropped
           ? `${label} is encrypted and its history is one commit.`
@@ -1053,8 +1463,6 @@ export const Strings = {
         "The branch becomes one commit, so the older versions are gone from it. GitHub may keep copies that nobody can reach for a while.",
       tag: "encrypted",
       tooltip: (names: string): string => `Encrypted notes, ${names}.`,
-      namesPlainShort: "names visible",
-      namesHiddenShort: "names hidden",
     },
 
     /** The texts of the GitHub provider (`GitHubSyncProvider`). */
@@ -1085,6 +1493,110 @@ export const Strings = {
       network: "NoteRoot could not reach GitHub. Check the internet connection and try again.",
       unexpected: "GitHub gave an answer that NoteRoot cannot read.",
       createExists: "A repository with that name exists already. Pick it from the list instead.",
+    },
+    gitlab: {
+      description: "A GitLab project (gitlab.com or your own GitLab), with a personal access token",
+      pickTitle: "Choose the GitLab project for your notes",
+      pickPlaceholder: "Pick a project, or make a new private one",
+      loading: "Loading your projects…",
+      createItem: "Make a new private project…",
+      createDetail: "Starts empty. Only you can see it.",
+      createPrompt: "Name of the new private project",
+      createValue: "my-notes",
+      createInvalid:
+        "Use letters, numbers, dots, dashes, underscores and spaces (at most 100 characters).",
+      typeItem: "Type the path of another project…",
+      typeDetail: "For a project that is not in the list (group/name).",
+      typePrompt: "Project as group/name, for example your-name/my-notes",
+      typeInvalid: "Use the form group/name, for example your-name/my-notes.",
+      signInTitle: "Sign in to GitLab",
+      tokenPrompt: (address: string): string =>
+        `A personal access token of ${address}. In GitLab: your picture ▸ Preferences ▸ Access tokens ▸ Add new token ▸ Legacy token, and tick ONLY the scope api. It is kept in the secret storage of VS Code. To use another GitLab, change the GitLab address in the Settings page first.`,
+      tokenInvalid: "Paste the token as GitLab shows it: no spaces, and not empty.",
+      tokenRefused: "GitLab did not accept that token (or that address). Check both and try again.",
+      notSignedIn: "Sign in to GitLab first (press Connect again).",
+      expired:
+        "GitLab did not accept the token any more (it may have ended). Connect again to give a new one.",
+      forbidden:
+        "GitLab refused this action. Your token may lack the scope api, or you cannot write to this project.",
+      notFound:
+        "GitLab did not find that. The project or the branch may be gone, or you may not have access.",
+      rateLimited: "GitLab is limiting the requests for now. Try again in a few minutes.",
+      conflict:
+        "GitLab refused the change, or the project changed while NoteRoot was working. Press Check now, pull, and try again.",
+      tooMany: "The project has too many files to list.",
+      network:
+        "NoteRoot could not reach GitLab. Check the internet connection and the address, and try again.",
+      unexpected: "GitLab gave an answer that NoteRoot cannot read.",
+    },
+    dropbox: {
+      description: "A folder of your Dropbox, with your Dropbox account",
+      pickTitle: "Choose the Dropbox folder for your notes",
+      pickPlaceholder: "Pick a folder that NoteRoot can use, or make a new one",
+      loading: "Looking for the folders of NoteRoot in your Dropbox…",
+      createItem: "Make a new folder in your Dropbox…",
+      createDetail: "NoteRoot makes it inside its own app folder. Only you can see it.",
+      createPrompt: "Name of the new folder in your Dropbox",
+      createValue: "NoteRoot notes",
+      createInvalid:
+        'Use a name of at most 100 characters, without slashes or the characters < > : " | ? *.',
+      notConfigured:
+        "The Dropbox sign-in is not set up: write the App key of your Dropbox app in the Settings page (Sync & Encryption, Dropbox app key).",
+      portBusy: (port: number): string =>
+        `NoteRoot could not listen on port ${port} for the Dropbox sign-in (something else uses it). Close it and try again.`,
+      browserNotOpened: "The browser could not be opened for the Dropbox sign-in.",
+      noRefreshToken:
+        "Dropbox did not give NoteRoot a lasting sign-in. Check that the app was made with the access type App folder and try again.",
+      notSignedIn: "Sign in to Dropbox first (press Connect again).",
+      expired: "The Dropbox sign-in is not valid any more. Connect again to sign in.",
+      signInRefused:
+        "Dropbox refused the sign-in. Check the App key and the Redirect URI of the app, and try again.",
+      rateLimited: "Dropbox is limiting the requests for now. Try again in a few minutes.",
+      quota: "Your Dropbox is full. Free some space and try again.",
+      forbidden:
+        "Dropbox refused this action. The Dropbox app may be missing a permission (files.metadata.read and write, files.content.read and write).",
+      notFound: "Dropbox did not find that. The folder or the file may be gone.",
+      conflict:
+        "The Dropbox folder changed while NoteRoot was working. Press Check now, pull, and try again.",
+      tooMany: "The Dropbox folder holds too many files to list.",
+      network: "NoteRoot could not reach Dropbox. Check the internet connection and try again.",
+      unexpected: "Dropbox gave an answer that NoteRoot cannot read.",
+      pageDone: "NoteRoot is signed in to Dropbox. You can close this tab and go back to VS Code.",
+      pageFailed: "The sign-in did not work. Close this tab and try again from VS Code.",
+    },
+    googleDrive: {
+      description: "A folder of your Google Drive, with your Google account",
+      pickTitle: "Choose the Google Drive folder for your notes",
+      pickPlaceholder: "Pick a folder that NoteRoot made, or make a new one",
+      loading: "Looking for the folders of NoteRoot in your Drive…",
+      createItem: "Make a new folder in your Drive…",
+      createDetail: "NoteRoot makes it in the top of your Drive. Only you can see it.",
+      createPrompt: "Name of the new folder in your Google Drive",
+      createValue: "NoteRoot notes",
+      createInvalid: "Use a name of at most 100 characters, without slashes.",
+      notConfigured:
+        "The Google sign-in is not set up. Make a Google client of your own (type Desktop app, see the README) and write its id and secret in the Settings page, Sync & Encryption, rows Google client id and Google client secret.",
+      clientFieldInvalid: "Paste it as Google shows it: no spaces, and not empty.",
+      browserNotOpened: "The browser could not be opened for the Google sign-in.",
+      noRefreshToken:
+        "Google did not give NoteRoot a lasting sign-in. Take the access of NoteRoot away in your Google account (Security, Third-party access) and sign in again.",
+      notSignedIn: "Sign in to Google first (press Connect again).",
+      expired: "The Google sign-in is not valid any more. Connect again to sign in.",
+      signInRefused: "Google refused the sign-in. Try again.",
+      rateLimited: "Google is limiting the requests for now. Try again in a few minutes.",
+      quota: "Your Google Drive is full. Free some space and try again.",
+      forbidden:
+        "Google refused this action. NoteRoot can only use the files and folders that it made itself.",
+      notFound: "Google did not find that. The file may be gone.",
+      folderGone:
+        "The Drive folder of this connection is gone (deleted or in the Trash). Change the folder or disconnect.",
+      conflict:
+        "The Drive folder changed while NoteRoot was working. Press Check now, pull, and try again.",
+      tooMany: "The Drive of NoteRoot holds too many files to list.",
+      network: "NoteRoot could not reach Google. Check the internet connection and try again.",
+      unexpected: "Google gave an answer that NoteRoot cannot read.",
+      pageDone: "NoteRoot is signed in to Google. You can close this tab and go back to VS Code.",
+      pageFailed: "The sign-in did not work. Close this tab and try again from VS Code.",
     },
   },
   errors: {

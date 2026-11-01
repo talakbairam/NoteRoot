@@ -16,8 +16,19 @@ import { EncryptionSupport } from "./services/EncryptedSyncProvider";
 import { GitHubAuth } from "./services/GitHubAuth";
 import { GitHubClient } from "./services/GitHubClient";
 import { GitHubSyncProvider } from "./services/GitHubSyncProvider";
+import { GitLabAuth } from "./services/GitLabAuth";
+import { GitLabClient } from "./services/GitLabClient";
+import { GitLabSyncProvider } from "./services/GitLabSyncProvider";
+import { DropboxAuth } from "./services/DropboxAuth";
+import { DropboxClient } from "./services/DropboxClient";
+import { DropboxSyncProvider } from "./services/DropboxSyncProvider";
+import { GoogleAuth } from "./services/GoogleAuth";
+import { GoogleClientStore } from "./services/GoogleClientStore";
+import { GoogleDriveClient } from "./services/GoogleDriveClient";
+import { GoogleDriveSyncProvider } from "./services/GoogleDriveSyncProvider";
+import { SavedSecretsService } from "./services/SavedSecretsService";
 import { SecretKeyStore } from "./services/SecretKeyStore";
-import { SyncService } from "./services/SyncService";
+import { SyncHub } from "./services/SyncHub";
 import { LabelService } from "./services/LabelService";
 import { InternalSaves } from "./services/InternalSaves";
 import { NoteTaggingService } from "./services/NoteTaggingService";
@@ -35,20 +46,24 @@ import { RecentNotesService } from "./services/RecentNotesService";
 import { RootFolderService } from "./services/RootFolderService";
 import { SearchService } from "./services/SearchService";
 import { SettingsService } from "./services/SettingsService";
+import { NoteDecorationProvider } from "./tree/NoteDecorationProvider";
 import { ShowHiddenService } from "./services/ShowHiddenService";
+import { PinnedRecentSwitches } from "./services/PinnedRecentSwitches";
+import { ShowEncryptedService } from "./services/ShowEncryptedService";
+import { ShowUnsyncedService } from "./services/ShowUnsyncedService";
+import { ShowNoTagService } from "./services/ShowNoTagService";
 import { StateService } from "./services/StateService";
 import { NotesDragAndDrop } from "./tree/NotesDragAndDrop";
 import { NotesTreeProvider } from "./tree/NotesTreeProvider";
 import { LabelsTreeProvider } from "./tree/LabelsTreeProvider";
-import { SettingsTreeProvider } from "./tree/SettingsTreeProvider";
 import { PinnedRecentProvider } from "./tree/PinnedRecentProvider";
-import { SyncTreeProvider } from "./tree/SyncTreeProvider";
 import { TreeNavigator } from "./tree/TreeNavigator";
 import { TreeStateController } from "./tree/TreeStateController";
 import { configureStatusMessages } from "./util/status";
 import { QuickNoteViewProvider } from "./webview/QuickNoteViewProvider";
 import { LabelsPageProvider } from "./webview/LabelsPageProvider";
 import { SettingsPageProvider } from "./webview/SettingsPageProvider";
+import { SyncPageProvider } from "./webview/SyncPageProvider";
 
 /** Wiring only: creates services and providers and registers them. No business logic here. */
 export function activate(context: vscode.ExtensionContext): void {
@@ -65,6 +80,18 @@ export function activate(context: vscode.ExtensionContext): void {
     read: () => settings.noTagPatterns,
     always: [],
   });
+  // The files and folders that the sync encrypts when a repository is set to encrypt only the chosen ones.
+  const encryptMatcher = new ExcludeMatcher(settings, {
+    key: SettingKeys.encryptPatterns,
+    read: () => settings.encryptPatterns,
+    always: [],
+  });
+  // The files and folders that the sync leaves alone, with every service.
+  const syncIgnoreMatcher = new ExcludeMatcher(settings, {
+    key: SettingKeys.syncIgnorePatterns,
+    read: () => settings.syncIgnorePatterns,
+    always: [],
+  });
   const configService = new ConfigService(logger, extensionVersion);
   const rootService = new RootFolderService(settings, configService, excludeMatcher, logger);
   const folderSettings = new FolderSettingsService(rootService, configService, settings, logger);
@@ -75,6 +102,9 @@ export function activate(context: vscode.ExtensionContext): void {
   const fileOps = new FileOperationsService(pathGuard, nameValidator, settings, logger);
 
   const showHidden = new ShowHiddenService(context.globalState);
+  const showNoTag = new ShowNoTagService(context.globalState);
+  const showEncrypted = new ShowEncryptedService(context.globalState);
+  const showUnsynced = new ShowUnsyncedService(context.globalState);
   const treeProvider = new NotesTreeProvider(
     rootService,
     pathGuard,
@@ -82,7 +112,12 @@ export function activate(context: vscode.ExtensionContext): void {
     settings,
     logger,
     showHidden,
-    noTagMatcher
+    noTagMatcher,
+    showNoTag,
+    encryptMatcher,
+    showEncrypted,
+    syncIgnoreMatcher,
+    showUnsynced
   );
   const navigator = new TreeNavigator(treeProvider, rootService, pathGuard, logger);
   const treeView = vscode.window.createTreeView(ViewIds.tree, {
@@ -110,7 +145,16 @@ export function activate(context: vscode.ExtensionContext): void {
     settings
   );
   const pinnedService = new PinnedNotesService(rootService, configService, pathGuard, logger);
-  const pinnedRecentProvider = new PinnedRecentProvider(recentService, pinnedService, treeProvider);
+  // Not a view of its own: it supplies the Pinned and Recent groups at the top of the Notes tree.
+  const pinnedRecentSwitches = new PinnedRecentSwitches(context.globalState);
+  recentService.setRecording(pinnedRecentSwitches.isEnabled("recent"));
+  const pinnedRecentProvider = new PinnedRecentProvider(
+    recentService,
+    pinnedService,
+    treeProvider,
+    pinnedRecentSwitches
+  );
+  treeProvider.attachPinnedRecent(pinnedRecentProvider);
   const advancedMode = new AdvancedModeService(context.globalState, settings);
   const autoCategories = new AutoCategoryService(
     context.globalState,
@@ -161,24 +205,69 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   // The services a notes folder can be synced with. A new one is one more class that implements SyncProvider, added here.
   const githubAuth = new GitHubAuth();
+  const googleClientStore = new GoogleClientStore(
+    context.globalStorageUri,
+    rootService,
+    configService,
+    context.globalState,
+    logger
+  );
+  context.subscriptions.push(googleClientStore);
+  const gitlabAuth = new GitLabAuth(context.secrets, settings, logger);
+  const dropboxAuth = new DropboxAuth(context.secrets, settings, logger);
+  const googleAuth = new GoogleAuth(context.secrets, googleClientStore, logger);
   const syncProviders = [
     new GitHubSyncProvider(new GitHubClient(() => githubAuth.token(), logger), githubAuth),
+    new GitLabSyncProvider(new GitLabClient(gitlabAuth, logger), gitlabAuth),
+    new DropboxSyncProvider(dropboxAuth, new DropboxClient(dropboxAuth, logger), logger),
+    new GoogleDriveSyncProvider(googleAuth, new GoogleDriveClient(googleAuth, logger), logger),
   ];
-  const syncService = new SyncService(
+  const keyStore = new SecretKeyStore(context.secrets);
+  const syncService = new SyncHub(
     context.globalState,
     rootService,
     pathGuard,
     searchService,
     excludeMatcher,
     syncProviders,
-    new EncryptionSupport(new SecretKeyStore(context.secrets), createKeyAsker(), logger),
+    new EncryptionSupport(keyStore, createKeyAsker(), logger),
+    logger,
+    encryptMatcher,
+    syncIgnoreMatcher
+  );
+  const savedSecrets = new SavedSecretsService(
+    context.secrets,
+    gitlabAuth,
+    googleAuth,
+    dropboxAuth,
+    keyStore,
+    () => syncService.savedKeyInfos(),
+    () => syncService.dropSealedCaches(),
     logger
   );
-  const syncProvider = new SyncTreeProvider(syncService);
-  const syncView = vscode.window.createTreeView(ViewIds.sync, { treeDataProvider: syncProvider });
-  syncProvider.attach(syncView);
-  const settingsContext = { settings, advancedMode, autoCategories, autoTagPatterns };
-  const settingsProvider = new SettingsTreeProvider(settingsContext);
+  context.subscriptions.push(savedSecrets);
+  void savedSecrets.refresh();
+  const syncPage = new SyncPageProvider(
+    context.extensionUri,
+    syncService,
+    rootService,
+    settings,
+    searchService,
+    googleClientStore,
+    savedSecrets,
+    logger
+  );
+  // The sync at a glance: the first row of the Notes tree.
+  treeProvider.attachSync(syncService, context.extensionUri);
+  const settingsContext = {
+    settings,
+    advancedMode,
+    autoCategories,
+    autoTagPatterns,
+    googleClientStore,
+    googleAuth,
+    savedSecrets,
+  };
   const settingsPage = new SettingsPageProvider(context.extensionUri, settingsContext, logger);
   const labelsProvider = new LabelsTreeProvider(
     labelService,
@@ -226,16 +315,23 @@ export function activate(context: vscode.ExtensionContext): void {
     settings,
     excludeMatcher,
     noTagMatcher,
+    encryptMatcher,
+    syncIgnoreMatcher,
     configService,
     rootService,
     folderSettings,
     stateService,
     treeProvider,
     treeView,
+    vscode.window.registerFileDecorationProvider(new NoteDecorationProvider()),
     treeState,
     activeNote,
     showHidden,
+    showNoTag,
+    showEncrypted,
+    showUnsynced,
     recentService,
+    pinnedRecentSwitches,
     pinnedRecentProvider,
     pinnedService,
     labelsProvider,
@@ -245,13 +341,9 @@ export function activate(context: vscode.ExtensionContext): void {
       canSelectMany: true,
     }),
     syncService,
-    syncProvider,
-    syncView,
-    settingsProvider,
+    syncPage,
     settingsPage,
     labelsPage,
-    vscode.window.registerTreeDataProvider(ViewIds.settings, settingsProvider),
-    vscode.window.registerTreeDataProvider(ViewIds.recent, pinnedRecentProvider),
     quickNoteService,
     advancedMode,
     autoCategories,
@@ -279,6 +371,7 @@ export function activate(context: vscode.ExtensionContext): void {
     labelService,
     searchService,
     recentService,
+    pinnedRecentSwitches,
     pinnedService,
     labelsProvider,
     labelsPage,
@@ -289,17 +382,43 @@ export function activate(context: vscode.ExtensionContext): void {
     encryptionService,
     decryptedView,
     showHidden,
+    showNoTag,
+    showEncrypted,
+    showUnsynced,
     excludeMatcher,
     noTagMatcher,
-    settingsContext,
+    encryptMatcher,
+    syncIgnoreMatcher,
     settingsPage,
     syncService,
     onlineView,
+    syncPage,
   });
 
+  googleClientStore
+    .load()
+    .catch((error: unknown) => logger.error("Could not read the Google client file.", error));
   showHidden
     .initialize()
     .catch((error: unknown) => logger.error("Could not publish the show hidden files key.", error));
+  showNoTag
+    .initialize()
+    .catch((error: unknown) => logger.error("Could not publish the show no-tag items key.", error));
+  pinnedRecentSwitches
+    .initialize()
+    .catch((error: unknown) =>
+      logger.error("Could not publish the pinned and recent switch keys.", error)
+    );
+  showUnsynced
+    .initialize()
+    .catch((error: unknown) =>
+      logger.error("Could not publish the show not-synced items key.", error)
+    );
+  showEncrypted
+    .initialize()
+    .catch((error: unknown) =>
+      logger.error("Could not publish the show encrypted items key.", error)
+    );
   activeNote
     .initialize()
     .catch((error: unknown) => logger.error("Could not publish the active note key.", error));

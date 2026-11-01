@@ -3,6 +3,7 @@ import { Logger } from "../services/Logger";
 import { RootFolderService } from "../services/RootFolderService";
 import { StateService, type TreeState } from "../services/StateService";
 import { NoteItem } from "./NoteItem";
+import type { NotesNode } from "./NotesNode";
 import { NotesTreeProvider } from "./NotesTreeProvider";
 
 /**
@@ -19,7 +20,7 @@ export class TreeStateController implements vscode.Disposable {
   private restoring = false;
 
   constructor(
-    private readonly treeView: vscode.TreeView<NoteItem>,
+    private readonly treeView: vscode.TreeView<NotesNode>,
     private readonly provider: NotesTreeProvider,
     private readonly rootService: RootFolderService,
     private readonly stateService: StateService,
@@ -126,8 +127,9 @@ export class TreeStateController implements vscode.Disposable {
     }
   }
 
-  private onExpanded(item: NoteItem, isExpanded: boolean): void {
-    if (this.restoring) {
+  private onExpanded(item: NotesNode, isExpanded: boolean): void {
+    // The group rows and the blank row are not folders of the notes folder.
+    if (this.restoring || !(item instanceof NoteItem)) {
       return;
     }
     if (isExpanded) {
@@ -138,8 +140,8 @@ export class TreeStateController implements vscode.Disposable {
     this.save();
   }
 
-  private onSelection(item: NoteItem | undefined): void {
-    if (this.restoring) {
+  private onSelection(item: NotesNode | undefined): void {
+    if (this.restoring || (item !== undefined && !(item instanceof NoteItem))) {
       return;
     }
     this.selected = item?.relativePath;
