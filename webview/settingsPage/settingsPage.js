@@ -13,6 +13,9 @@
 	let searchBox = null;
 	let changedBox = null;
 	let nothing = null;
+	/** The nav buttons by section id, and the section the page shows (kept when the page is hidden and shown again). */
+	const navButtons = new Map();
+	let current = (vscode.getState() || {}).section || null;
 
 	function element(tag, className, text) {
 		const created = document.createElement(tag);
@@ -38,6 +41,7 @@
 		const item = { data: rowData };
 		const row = element('div', 'row');
 		row.dataset.id = rowData.id;
+		row.classList.add('kind-' + rowData.kind);
 		item.row = row;
 
 		const head = element('div', 'head');
@@ -83,7 +87,11 @@
 			case 'text':
 			case 'number': {
 				const input = element('input');
-				input.type = 'text';
+				// A password is hidden, and it is never sent to the page: the box starts empty and only takes a new one.
+				input.type = rowData.secret ? 'password' : 'text';
+				if (rowData.secret) {
+					input.autocomplete = 'off';
+				}
 				input.id = controlId;
 				input.spellcheck = false;
 				if (rowData.kind === 'number') {
@@ -126,6 +134,15 @@
 				control.append(box, apply, hint);
 				break;
 			}
+			case 'status': {
+				// Only shows what is there; Reset (below) takes it away. A status that is a list also has a Forget for each item.
+				item.valueText = element('span', 'value-text');
+				control.append(item.valueText);
+				if (rowData.items !== undefined) {
+					item.list = element('ul', 'saved-items');
+				}
+				break;
+			}
 			default: {
 				// An action: the value is shown, and a button runs the command that changes it.
 				item.valueText = element('span', 'value-text');
@@ -147,7 +164,11 @@
 		item.error.setAttribute('role', 'alert');
 		item.error.hidden = true;
 
-		row.append(head, description, control, meta, item.error);
+		row.append(head, description, control);
+		if (item.list) {
+			row.append(item.list);
+		}
+		row.append(meta, item.error);
 		return item;
 	}
 
@@ -166,6 +187,19 @@
 		const input = item.input;
 		if (!input) {
 			item.valueText.textContent = rowData.valueText;
+			if (item.list) {
+				// What is saved: its name, what it belongs to, and a button that forgets that one.
+				item.list.textContent = '';
+				for (const saved of rowData.items || []) {
+					const line = element('li');
+					const text = element('span', 'saved-text');
+					text.append(element('span', undefined, saved.text), element('span', 'saved-detail', saved.detail));
+					const forget = element('button', 'secondary', texts.forgetKey);
+					forget.addEventListener('click', () => send({ type: 'forget', id: rowData.id, item: saved.id }));
+					line.append(text, forget);
+					item.list.append(line);
+				}
+			}
 			return;
 		}
 		const editing = document.activeElement === input;
@@ -194,10 +228,42 @@
 			item.row.hidden = !matches;
 			shown += matches ? 1 : 0;
 		}
+		const filtering = needle !== '' || onlyChanged;
 		for (const section of page.querySelectorAll('section')) {
-			section.hidden = section.querySelectorAll('.row:not([hidden])').length === 0;
+			const id = section.dataset.section;
+			const hasMatch = section.dataset.tools
+				? !filtering // The buttons of the tools section are not settings: a search or "Only changed" hides them.
+				: section.querySelectorAll('.row:not([hidden])').length > 0;
+			// Without a filter only the chosen section shows; with one, every section that has a match.
+			section.hidden = filtering ? !hasMatch : id !== current;
+			const button = navButtons.get(id);
+			if (button) {
+				button.hidden = filtering && !hasMatch;
+				button.setAttribute('aria-current', !filtering && id === current ? 'true' : 'false');
+			}
 		}
-		nothing.hidden = shown !== 0;
+		// A heading goes away with its settings: a box with nothing that matches is hidden.
+		for (const block of page.querySelectorAll('.subgroup')) {
+			block.hidden = block.querySelectorAll('.row:not([hidden])').length === 0;
+		}
+		nothing.hidden = !filtering || shown !== 0;
+	}
+
+	function choose(id) {
+		current = id;
+		vscode.setState({ section: id });
+		searchBox.value = '';
+		changedBox.checked = false;
+		applyFilter();
+		window.scrollTo(0, 0);
+	}
+
+	function addNav(nav, id, label) {
+		const button = element('button', 'nav-item', label);
+		button.type = 'button';
+		button.addEventListener('click', () => choose(id));
+		navButtons.set(id, button);
+		nav.append(button);
 	}
 
 	function init(message) {
@@ -221,20 +287,70 @@
 		toolbar.append(searchBox, changedLabel);
 		page.append(toolbar);
 
+		navButtons.clear();
+		const layout = element('div', 'layout');
+		const nav = element('nav', 'nav');
+		const content = element('div', 'content');
+		layout.append(nav, content);
+		page.append(layout);
 		const sections = new Map();
 		for (const rowData of message.rows) {
 			let section = sections.get(rowData.group);
 			if (!section) {
 				section = element('section');
+				section.dataset.section = rowData.group;
 				section.append(element('h2', undefined, rowData.groupLabel));
+				if (rowData.group === 'advanced') {
+					section.append(element('p', 'desc', texts.advancedNote));
+				}
 				sections.set(rowData.group, section);
-				page.append(section);
+				content.append(section);
+				addNav(nav, rowData.group, rowData.groupLabel);
+			}
+			// A heading inside the section starts a box of its own (a section without headings has one box).
+			const heading = rowData.subgroup || '';
+			if (section.lastHeading !== heading || !section.box) {
+				const block = element('div', 'subgroup');
+				if (heading) {
+					block.append(element('h3', undefined, heading));
+				}
+				section.box = element('div', 'rows');
+				block.append(section.box);
+				section.append(block);
+				section.lastHeading = heading;
 			}
 			const item = build(rowData);
 			rows.set(rowData.id, item);
-			section.append(item.row);
+			section.box.append(item.row);
 			refresh(item, rowData);
 		}
+		// Files and logs: the same buttons as the menu of the Settings view. They run commands, they change no setting.
+		const tools = element('section');
+		tools.dataset.tools = 'true';
+		tools.dataset.section = 'tools';
+		tools.append(element('h2', undefined, texts.toolsTitle));
+		for (const tool of texts.tools) {
+			const row = element('div', 'row');
+			const head = element('div', 'head');
+			head.append(element('span', 'name', tool.label));
+			const control = element('div', 'control');
+			const button = element('button', 'secondary', tool.button);
+			button.addEventListener('click', () => send({ type: 'tool', id: tool.id }));
+			control.append(button);
+			row.append(head, element('p', 'desc', tool.description), control);
+			tools.append(row);
+		}
+		content.append(tools);
+		addNav(nav, 'tools', texts.toolsTitle);
+		// The section the extension asked for (a button that points at one setting), else the one shown last.
+		if (message.section && navButtons.has(message.section)) {
+			current = message.section;
+			vscode.setState({ section: current });
+		}
+		if (!navButtons.has(current)) {
+			current = message.rows.length > 0 ? message.rows[0].group : 'tools';
+		}
+
 		nothing = element('p');
 		nothing.id = 'none';
 		nothing.textContent = texts.noMatches;
@@ -276,6 +392,8 @@
 		}
 		if (message.type === 'init') {
 			init(message);
+		} else if (message.type === 'show' && texts && navButtons.has(message.section)) {
+			choose(message.section);
 		} else if (message.type === 'update' && texts) {
 			update(message.rows);
 		} else if (message.type === 'result' && texts) {

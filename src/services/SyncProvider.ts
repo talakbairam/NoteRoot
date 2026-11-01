@@ -1,7 +1,7 @@
 /**
  * What a place to sync the notes folder with must be able to do. GitHub is the first one (`GitHubSyncProvider`); another
  * service (GitLab, a cloud drive, a server) is one more class that implements {@link SyncProvider}, plus one line in
- * `extension.ts`. Nothing else changes: `SyncService` (comparing, push, pull, conflicts) and the Actions view only talk
+ * `extension.ts`. Nothing else changes: `SyncService` (comparing, push, pull, conflicts) and the Sync page only talk
  * to this interface. No `vscode` here, so the types can be read and checked on their own.
  *
  * The sync compares files by a **hash that the remote reports for the content** (the blob hash of Git, the MD5 of a drive,
@@ -112,6 +112,8 @@ export interface SyncProvider {
   /** Present when the provider can find a target by a typed name. */
   readonly finder?: TargetFinder;
 
+  /** The page of the target in a browser (an `https` address), or undefined when the service has none. */
+  webUrl?(target: RemoteTarget): string | undefined;
   /** The hash the remote reports for these bytes. */
   hash(bytes: Uint8Array): string;
   /** Signs in when needed. Returns false when the user said no. */

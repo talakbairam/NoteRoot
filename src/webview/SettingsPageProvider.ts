@@ -1,11 +1,17 @@
 import { randomBytes } from "crypto";
 import * as vscode from "vscode";
+import { Commands } from "../constants/commands";
 import { isFolderSettingKey } from "../constants/settings";
 import { Strings } from "../constants/strings";
 import { Logger } from "../services/Logger";
 import {
   SETTING_DEFS,
+  SETTING_GROUP_ORDER,
+  SETTING_ORDER,
+  subgroupIndex,
   applySettingEdit,
+  choiceLabel,
+  describeValue,
   findSettingDef,
   isChanged,
   resetSetting,
@@ -13,11 +19,13 @@ import {
   type SettingsContext,
 } from "../services/SettingsCatalog";
 import { reportError } from "../commands/safe";
-import { choiceLabel, describeValue } from "../tree/SettingsTreeProvider";
+
 import { showStatus } from "../util/status";
 import {
+  TOOL_IDS,
   parseSettingsPageMessage,
   type ExtensionToSettingsPageMessage,
+  type ToolId,
   type SettingRow,
   type SettingsPageTexts,
   type SettingsPageToExtensionMessage,
@@ -25,15 +33,24 @@ import {
 
 const PANEL_TYPE = "noteRoot.settingsPage";
 
+/** What each button of the "Files and logs" section runs. */
+const TOOL_COMMANDS: Record<ToolId, string> = {
+  openConfigFile: Commands.openConfigFile,
+  showLogs: Commands.showLogs,
+  openAllSettings: Commands.openAllSettings,
+};
+
 /**
  * "NoteRoot Settings": every setting in a tab of the editor, to review and change. It uses the same list
- * (`SETTING_DEFS`) and the same checks and writing (`applySettingEdit`, `resetSetting`) as the Settings view, so the two
+ * (`SETTING_DEFS`) and the same checks and writing (`applySettingEdit`, `resetSetting`) as the rest of NoteRoot, so the two
  * cannot disagree, and it follows the settings, so a change made anywhere shows up at once.
  */
 export class SettingsPageProvider implements vscode.Disposable {
   private panel: vscode.WebviewPanel | undefined;
   /** True while the current page has announced itself with `ready`. */
   private ready = false;
+  /** The section the next `init` asks the page to show (set by `open`). */
+  private sectionToShow: string | undefined;
   private readonly subscriptions: vscode.Disposable[];
 
   constructor(
@@ -47,13 +64,22 @@ export class SettingsPageProvider implements vscode.Disposable {
       context.advancedMode.onDidChange(refresh),
       context.autoCategories.onDidChange(refresh),
       context.autoTagPatterns.onDidChange(refresh),
+      context.googleClientStore.onDidChange(refresh),
+      context.savedSecrets.onDidChange(refresh),
     ];
   }
 
-  /** Opens the page in a new tab, or shows the one that is open. */
-  open(): void {
+  /**
+   * Opens the page in a new tab, or shows the one that is open. `section` (a group of the settings) is the one to show: without
+   * it the page shows the section it showed last.
+   */
+  open(section?: string): void {
+    this.sectionToShow = section;
     if (this.panel) {
       this.panel.reveal();
+      if (section) {
+        this.post({ type: "show", section });
+      }
       return;
     }
     const pagesRoot = vscode.Uri.joinPath(this.extensionUri, "webview");
@@ -92,11 +118,29 @@ export class SettingsPageProvider implements vscode.Disposable {
   private async handleMessage(message: SettingsPageToExtensionMessage): Promise<void> {
     if (message.type === "ready") {
       this.ready = true;
-      this.post({ type: "init", texts: this.texts(), rows: this.rows() });
+      this.post({
+        type: "init",
+        texts: this.texts(),
+        rows: this.rows(),
+        section: this.sectionToShow,
+      });
+      return;
+    }
+    if (message.type === "tool") {
+      // The commands that open the config file, the logs and the VS Code Settings editor.
+      const command = TOOL_COMMANDS[message.id];
+      await vscode.commands.executeCommand(command);
       return;
     }
     const def = findSettingDef(message.id);
     if (!def) {
+      return;
+    }
+    if (message.type === "forget") {
+      // Only the saved keys have a list; the key is looked up in what is saved, the name from the page is never used as a path.
+      if (def.id === "savedMasterKeys") {
+        await this.context.savedSecrets.removeKey(message.item);
+      }
       return;
     }
     const label = Strings.settingsView.items[def.id].label;
@@ -146,6 +190,8 @@ export class SettingsPageProvider implements vscode.Disposable {
       sourceFolder: text.sourceFolder,
       sourceUser: text.sourceUser,
       reset: text.reset,
+      forgetKey: text.forgetKey,
+      advancedNote: text.advancedNote,
       change: text.change,
       apply: text.apply,
       listHint: text.listHint,
@@ -153,11 +199,25 @@ export class SettingsPageProvider implements vscode.Disposable {
       off: text.off,
       saved: text.saved,
       defaultLabel: text.defaultLabel,
+      toolsTitle: text.toolsTitle,
+      tools: TOOL_IDS.map((id) => ({ id, ...text.tools[id] })),
     };
   }
 
   private rows(): SettingRow[] {
-    return SETTING_DEFS.map((def) => this.rowOf(def));
+    // By group (SETTING_GROUP_ORDER), then in the order of SETTING_ORDER; a setting that is not listed there goes last.
+    const place = (def: SettingDef): number => {
+      const index = SETTING_ORDER.indexOf(def.id);
+      return index < 0 ? SETTING_ORDER.length : index;
+    };
+    return [...SETTING_DEFS]
+      .sort(
+        (a, b) =>
+          SETTING_GROUP_ORDER.indexOf(a.group) - SETTING_GROUP_ORDER.indexOf(b.group) ||
+          subgroupIndex(a.subgroup) - subgroupIndex(b.subgroup) ||
+          place(a) - place(b)
+      )
+      .map((def) => this.rowOf(def));
   }
 
   private rowOf(def: SettingDef): SettingRow {
@@ -171,11 +231,18 @@ export class SettingsPageProvider implements vscode.Disposable {
       id: def.id,
       group: def.group,
       groupLabel: Strings.settingsView.groups[def.group],
+      ...(def.subgroup ? { subgroup: Strings.settingsView.subgroups[def.subgroup] } : {}),
       kind: def.kind,
       label: text.label,
       description: text.description,
-      value:
-        typeof value === "number" ? String(value) : typeof value === "object" ? [...value] : value,
+      // A password never goes to the page: it shows that one is set (valueText) and takes a new one.
+      value: def.secret
+        ? ""
+        : typeof value === "number"
+          ? String(value)
+          : typeof value === "object"
+            ? [...value]
+            : value,
       valueText: describeValue(def, value),
       defaultText: this.defaultText(def),
       changed: isChanged(this.context, def),
@@ -189,6 +256,16 @@ export class SettingsPageProvider implements vscode.Disposable {
           : undefined,
       unit: def.unit ? Strings.settingsPage.units[def.unit] : "",
       resettable: def.resettable,
+      ...(def.secret ? { secret: true } : {}),
+      ...(def.id === "savedMasterKeys"
+        ? {
+            items: this.context.savedSecrets.state.keys.map((key) => ({
+              id: key.id,
+              text: `${key.service} · ${key.target}`,
+              detail: key.folder,
+            })),
+          }
+        : {}),
     };
   }
 

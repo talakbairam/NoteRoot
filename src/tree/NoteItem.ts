@@ -20,6 +20,15 @@ export const ContextValues = {
   quickNoteSuffix: ".quickNote",
 } as const;
 
+/**
+ * The query that marks the `resourceUri` of a row whose name is coloured (see `NoteDecorationProvider`): `marked` for hidden and
+ * no-tag items (yellow-orange), `encrypted` for items the sync encrypts (green). The first wins when a row has both.
+ */
+export const MarkQuery = {
+  marked: "noteRoot=marked",
+  encrypted: "noteRoot=encrypted",
+} as const;
+
 export function kindFromFileType(type: vscode.FileType): NoteKind {
   const isLink = (type & vscode.FileType.SymbolicLink) !== 0;
   if ((type & vscode.FileType.Directory) !== 0) {
@@ -39,8 +48,16 @@ export class NoteItem extends vscode.TreeItem {
     readonly hidden = false,
     /** Left out of automatic tagging by the list of the files without tagging. */
     readonly noTag = false,
-    /** Write "no tags" next to the name: only while "Show Hidden Items" is on, so a normal tree stays clean. */
-    markNoTag = false
+    /** Write "no tags" next to the name: only while "Show No-Tag Items" is on, so a normal tree stays clean. */
+    markNoTag = false,
+    /** Chosen for the encryption of the sync by the list of the files to encrypt (itself or a folder above it). */
+    readonly sealed = false,
+    /** Write "encrypted" next to the name: only while "Show Encrypted Items" is on. */
+    markSealed = false,
+    /** Left alone by the sync: on the list of the files not synced (itself or a folder above it). */
+    readonly unsynced = false,
+    /** Write "not synced" next to the name: only while "Show Not-Synced Items" is on. */
+    markUnsynced = false
   ) {
     // Passing the URI as resourceUri (and no iconPath) lets the user's file icon theme pick the icon.
     super(
@@ -55,18 +72,24 @@ export class NoteItem extends vscode.TreeItem {
     this.contextValue =
       contextValueFor(kind, this.label, isQuickNoteFile) +
       (hidden ? ".hidden" : "") +
-      (noTag ? ".notag" : "");
+      (noTag ? ".notag" : "") +
+      (sealed ? ".sealed" : "") +
+      (unsynced ? ".nosync" : "");
     const locked = kind === "file" && isEncryptedName(this.label);
     if (locked) {
       this.contextValue += ".locked";
     }
-    if (hidden || (noTag && markNoTag)) {
-      this.description = [
-        hidden ? Strings.tree.hiddenMark : "",
-        noTag && markNoTag ? Strings.tree.noTagMark : "",
-      ]
-        .filter(Boolean)
-        .join(" · ");
+    const marks = [
+      hidden ? Strings.tree.hiddenMark : "",
+      noTag && markNoTag ? Strings.tree.noTagMark : "",
+      sealed && markSealed ? Strings.tree.encryptedMark : "",
+      unsynced && markUnsynced ? Strings.tree.unsyncedMark : "",
+    ].filter(Boolean);
+    if (marks.length > 0) {
+      this.description = marks.join(" · ");
+      // The query only selects the colour; the path stays the real one, so the file icon theme still works.
+      const warned = hidden || (noTag && markNoTag) || (unsynced && markUnsynced);
+      this.resourceUri = uri.with({ query: warned ? MarkQuery.marked : MarkQuery.encrypted });
     }
 
     if (kind === "symlinkFolder") {

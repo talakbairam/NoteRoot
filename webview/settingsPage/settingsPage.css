@@ -8,7 +8,7 @@ body {
 }
 
 main {
-	max-width: 760px;
+	max-width: 1040px;
 	margin: 0 auto;
 }
 
@@ -19,7 +19,7 @@ h1 {
 }
 
 h2 {
-	margin: 28px 0 8px;
+	margin: 0 0 8px;
 	padding-bottom: 4px;
 	font-size: 1.15em;
 	font-weight: 600;
@@ -56,6 +56,7 @@ h2 {
 }
 
 input[type='text'],
+input[type='password'],
 input[type='search'],
 select,
 textarea {
@@ -92,9 +93,59 @@ button:focus-visible {
 	outline-offset: -1px;
 }
 
+/* The settings of a section are in one frame; each is a line with the name and the explanation on the left and the control on the right. */
+.rows {
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.row + .row {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
 .row {
-	padding: 10px 0 10px 12px;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 0 24px;
+	padding: 14px 16px 14px 13px;
 	border-left: 3px solid transparent;
+}
+
+.row > .head,
+.row > .desc {
+	grid-column: 1;
+}
+
+.row > .control {
+	grid-column: 2;
+	grid-row: 1 / span 2;
+	justify-content: flex-end;
+}
+
+.row > .meta,
+.row > .error {
+	grid-column: 1 / -1;
+}
+
+/* A list is wide and a folder or file action has a long value: they take the whole line, under the text. */
+.row.kind-list > .control,
+.row.kind-action > .control {
+	grid-column: 1 / -1;
+	grid-row: auto;
+	justify-content: flex-start;
+}
+
+@media (max-width: 640px) {
+	.row {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.row > .control {
+		grid-column: 1;
+		grid-row: auto;
+		justify-content: flex-start;
+	}
 }
 
 .row[hidden] {
@@ -142,6 +193,7 @@ button:focus-visible {
 }
 
 .control input[type='text'],
+.control input[type='password'],
 .control select {
 	flex: 0 1 360px;
 	min-width: 120px;
@@ -239,4 +291,136 @@ button[hidden] {
 
 #none[hidden] {
 	display: none;
+}
+
+/* A menu of sections on the left, the chosen section on the right. */
+.layout {
+	display: grid;
+	grid-template-columns: 190px minmax(0, 1fr);
+	gap: 8px 28px;
+	align-items: start;
+	margin-top: 8px;
+}
+
+.nav {
+	position: sticky;
+	top: 56px;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+button.nav-item {
+	padding: 6px 10px;
+	text-align: left;
+	color: var(--vscode-foreground);
+	background: none;
+	border: none;
+	border-left: 2px solid transparent;
+	border-radius: 0;
+}
+
+button.nav-item:hover:not(:disabled) {
+	background: var(--vscode-list-hoverBackground);
+}
+
+button.nav-item[aria-current='true'] {
+	font-weight: 600;
+	color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+	background: var(--vscode-list-activeSelectionBackground, var(--vscode-list-hoverBackground));
+	border-left-color: var(--vscode-focusBorder);
+}
+
+.content {
+	max-width: 760px;
+}
+
+section[hidden] {
+	display: none;
+}
+
+/* A narrow tab: the menu becomes a row above the settings. */
+@media (max-width: 640px) {
+	.layout {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.nav {
+		position: static;
+		flex-direction: row;
+		flex-wrap: wrap;
+	}
+
+	button.nav-item {
+		border-left: none;
+		border-bottom: 2px solid transparent;
+	}
+
+	button.nav-item[aria-current='true'] {
+		border-bottom-color: var(--vscode-focusBorder);
+	}
+}
+
+/* A heading inside a section, with the settings under it in their own box. */
+.subgroup + .subgroup {
+	margin-top: 22px;
+}
+
+.subgroup > h3 {
+	margin: 0 0 8px;
+	color: var(--vscode-descriptionForeground);
+	font-size: 1em;
+	font-weight: 600;
+}
+
+.subgroup[hidden] {
+	display: none;
+}
+
+/* A number: every box has the same width, so they line up; the unit (MB, ms) sits inside the box, at its right end. */
+.kind-number .control {
+	position: relative;
+	flex-wrap: nowrap;
+}
+
+.kind-number .control input[type='text'] {
+	flex: 0 0 120px;
+	width: 120px;
+	min-width: 0;
+	padding-right: 38px;
+}
+
+.kind-number .unit {
+	position: absolute;
+	right: 10px;
+	pointer-events: none;
+}
+
+/* The saved keys under their row: each with what it belongs to, and a Forget. */
+.saved-items {
+	grid-column: 1 / -1;
+	margin: 8px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.saved-items li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 6px 0;
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.saved-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.saved-detail {
+	color: var(--vscode-descriptionForeground);
+	font-size: 0.9em;
+	word-break: break-all;
 }

@@ -1,13 +1,18 @@
 import * as vscode from "vscode";
-import { BuiltinCommands } from "../constants/commands";
-import { ContextKeys, StateKeys } from "../constants/context";
+import { StateKeys } from "../constants/context";
 import { Strings } from "../constants/strings";
 import { SyncRefusedError, TrashUnavailableError } from "../util/errors";
 import { describeError, isFileNotFoundError } from "../util/fsErrors";
 import { mapLimit } from "../util/mapLimit";
 import { ExcludeMatcher } from "./ExcludeMatcher";
-import type { EncryptionConfig, EncryptionSupport, TargetKind } from "./EncryptedSyncProvider";
+import {
+  keyId,
+  type EncryptionConfig,
+  type EncryptionSupport,
+  type TargetKind,
+} from "./EncryptedSyncProvider";
 import { Logger } from "./Logger";
+import type { SavedKeyInfo } from "./SavedSecretsService";
 import { PathGuard } from "./PathGuard";
 import { RootFolderService } from "./RootFolderService";
 import { SearchService } from "./SearchService";
@@ -60,7 +65,7 @@ export interface SyncConnection {
   readonly keepLast: number | undefined;
 }
 
-/** What the Actions view shows. */
+/** What the Sync row and the Sync page show. */
 export interface SyncSnapshot {
   readonly status: SyncStatus | undefined;
   readonly checkedAt: Date | undefined;
@@ -129,7 +134,9 @@ interface Local {
 }
 
 /**
- * Syncs the notes folder with a remote through a {@link SyncProvider} (GitHub is the first). It compares three states: the
+ * Syncs the notes folder with a remote through ONE {@link SyncProvider} (GitHub, Google Drive...); a notes folder can be
+ * connected to several services at once, and each has its own `SyncService` (see `SyncHub`), with its own connection,
+ * base and state. Only one sync action runs at a time across them (the shared {@link SyncLock}). It compares three states: the
  * files here, the files of the remote, and the **base** (what was synced last, kept per notes folder on this machine in
  * `globalState`). Push sends what changed here, pull brings what changed there, and a file that changed on both sides is a
  * conflict that the caller resolves: nothing is overwritten without a copy in the Trash. Services never show UI: the
@@ -138,12 +145,21 @@ interface Local {
  * Nothing contacts the remote until a command asks for it, except the optional check for a new version (an off switch, per
  * machine) that asks only for the current version of the target.
  */
+/** Whether a sync action runs: one object shared by the services of a hub, so two actions never run at the same time. */
+export interface SyncLock {
+  running: boolean;
+}
+
 export class SyncService implements vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
   private readonly newVersionEmitter = new vscode.EventEmitter<SyncConnection>();
   private readonly subscriptions: vscode.Disposable[] = [];
   /** Hashes of files by path, valid while the modification time and the size are the same. */
-  private readonly hashCache = new Map<string, { mtime: number; size: number; sha: string }>();
+  /** The hash of each file here by path, with what it was made from (see `hashFile`). */
+  private readonly hashCache = new Map<
+    string,
+    { mtime: number; size: number; sha: string; kind: string }
+  >();
   private snapshotValue: SyncSnapshot = emptySnapshot();
   private knownRemoteVersion: string | undefined;
   private remoteChecked = false;
@@ -153,9 +169,10 @@ export class SyncService implements vscode.Disposable {
   private lastRemote: Remote | undefined;
   /** The providers that seal and open, one for each connection (they keep the key and the index of the last read). */
   private readonly sealed = new Map<string, SyncProvider>();
+  /** What the user chose to keep for a file that changed on both sides, before the pull (the others are asked at the pull). */
+  private readonly choices = new Map<string, Resolution>();
   private localTimer: NodeJS.Timeout | undefined;
   private rescanning = false;
-  private running = false;
   private autoCheck: boolean;
   private timer: NodeJS.Timeout | undefined;
 
@@ -163,6 +180,60 @@ export class SyncService implements vscode.Disposable {
   readonly onDidChange = this.changeEmitter.event;
   /** Fires once for each new version that the automatic check finds. */
   readonly onDidFindNewVersion = this.newVersionEmitter.event;
+
+  /** The version to keep that the user chose for each file in conflict, by path. A file that is not here is asked at the pull. */
+  get conflictChoices(): ReadonlyMap<string, Resolution> {
+    return this.choices;
+  }
+
+  /**
+   * Chooses which version to keep for a file in conflict (`undefined` takes the choice back, so the pull asks). Nothing is changed
+   * until the pull.
+   * @throws SyncRefusedError for "keep both" on the config file, which cannot be saved twice.
+   */
+  setConflictChoice(path: string, resolution: Resolution | undefined): void {
+    if (resolution === "both" && path === CONFIG_PATH) {
+      throw new SyncRefusedError(Strings.sync.noKeepBothConfig);
+    }
+    if (resolution === undefined) {
+      this.choices.delete(path);
+    } else {
+      this.choices.set(path, resolution);
+    }
+    this.changeEmitter.fire();
+  }
+
+  /** Forgets the sealing providers (and the keys they hold in memory): the next use asks for the master key if no key is saved. */
+  dropSealedCache(): void {
+    this.sealed.clear();
+  }
+
+  /** The keys that every connection of this service, in any notes folder, could have saved, with what each belongs to. */
+  savedKeyInfos(): SavedKeyInfo[] {
+    return Object.entries(this.readAll()).flatMap(([key, stored]) =>
+      stored.provider === this.provider.id && stored.encryption
+        ? [
+            {
+              id: keyId(stored.provider, stored.target, stored.encryption.salt),
+              service: this.provider.label,
+              target: stored.target.label,
+              // The key of a connection is the notes folder (and the service after a #): a path on this computer.
+              folder: vscode.Uri.parse(key.split("#")[0]).fsPath,
+            },
+          ]
+        : []
+    );
+  }
+
+  /** Whether this service is connected for the current notes folder, and how (for the context keys of the hub). */
+  get connectionState(): { connected: boolean; encrypted: boolean; custom: boolean } {
+    const stored = this.readStored();
+    return {
+      connected: stored !== undefined,
+      encrypted: stored?.encryption !== undefined,
+      custom: stored?.encryption?.custom === true,
+    };
+  }
 
   constructor(
     private readonly memento: vscode.Memento,
@@ -173,14 +244,21 @@ export class SyncService implements vscode.Disposable {
     /** The services the notes folder can be synced with. */
     readonly providers: readonly SyncProvider[],
     private readonly encryption: EncryptionSupport,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    /** The list of the files and folders to encrypt, for a repository set to encrypt only the chosen files. */
+    private readonly encryptMatcher: ExcludeMatcher,
+    /** The list of the files and folders that the sync leaves alone. */
+    private readonly ignoreMatcher: ExcludeMatcher,
+    /** Shared by the services of one hub: only one sync action runs at a time. */
+    private readonly lock: SyncLock = { running: false }
   ) {
     this.autoCheck = memento.get<unknown>(StateKeys.syncAutoCheck) === true;
     this.subscriptions.push(
       rootService.onDidChangeRoot(() => this.onRootChanged()),
-      rootService.onDidChangeState(
-        () => void this.publishConnected().then(() => this.showLocalChanges())
-      ),
+      rootService.onDidChangeState(() => {
+        this.changeEmitter.fire();
+        void this.showLocalChanges();
+      }),
       rootService.onDidChangeFiles(() => this.scheduleLocalRefresh()),
       vscode.window.onDidChangeWindowState((state) => {
         if (state.focused) {
@@ -194,8 +272,13 @@ export class SyncService implements vscode.Disposable {
     return this.snapshotValue;
   }
 
+  /** The service this one syncs with. */
+  get provider(): SyncProvider {
+    return this.providers[0];
+  }
+
   get isBusy(): boolean {
-    return this.running;
+    return this.lock.running;
   }
 
   get isAutoCheckOn(): boolean {
@@ -219,12 +302,6 @@ export class SyncService implements vscode.Disposable {
 
   /** Publishes the context keys and starts the automatic check when it is on. Call once at activation. */
   async initialize(): Promise<void> {
-    await vscode.commands.executeCommand(
-      BuiltinCommands.setContext,
-      ContextKeys.syncAutoCheck,
-      this.autoCheck
-    );
-    await this.publishConnected();
     this.restartTimer();
     void this.showLocalChanges();
     if (this.autoCheck) {
@@ -243,9 +320,10 @@ export class SyncService implements vscode.Disposable {
     provider: SyncProvider,
     target: RemoteTarget,
     names: NameMode,
-    masterKey: string
+    masterKey: string,
+    custom: boolean
   ): Promise<EncryptionConfig> {
-    return this.encryption.create(provider, target, names, masterKey);
+    return this.encryption.create(provider, target, names, masterKey, custom);
   }
 
   /**
@@ -260,9 +338,9 @@ export class SyncService implements vscode.Disposable {
     const key = this.requireRootKey();
     const all = this.readAll();
     all[key] = { provider: provider.id, target, encryption, files: {} };
+    this.dropLegacy(all);
     await this.memento.update(StateKeys.sync, all);
     this.resetRuntime();
-    await this.publishConnected();
     this.changeEmitter.fire();
   }
 
@@ -274,9 +352,9 @@ export class SyncService implements vscode.Disposable {
     }
     const all = this.readAll();
     delete all[key];
+    this.dropLegacy(all);
     await this.memento.update(StateKeys.sync, all);
     this.resetRuntime();
-    await this.publishConnected();
     this.changeEmitter.fire();
   }
 
@@ -329,7 +407,7 @@ export class SyncService implements vscode.Disposable {
     if (hash === undefined) {
       return undefined;
     }
-    if (this.running) {
+    if (this.lock.running) {
       throw new SyncRefusedError(Strings.sync.busy);
     }
     return provider.download(stored.target, { path, hash });
@@ -356,7 +434,12 @@ export class SyncService implements vscode.Disposable {
    * @throws SyncRefusedError when nothing is connected, the target is not encrypted or empty, or another action runs.
    * @throws NoteRootError (from the provider) when the upload is refused or the old key is wrong.
    */
-  async changeMasterKey(options: { masterKey: string; dropHistory: boolean }): Promise<void> {
+  async changeMasterKey(options: {
+    masterKey: string;
+    dropHistory: boolean;
+    /** How the sealed files are named from now on; the same as before when it is missing. */
+    names?: NameMode;
+  }): Promise<void> {
     await this.exclusive(async () => {
       const { stored } = this.requireConnection();
       const base = this.baseProviderOf(stored);
@@ -369,12 +452,16 @@ export class SyncService implements vscode.Disposable {
       }
       const result = await this.encryption.rewrite(base, {
         target: stored.target,
-        names: stored.encryption.names,
+        names: options.names ?? stored.encryption.names,
+        isSealed: stored.encryption.custom ? (path) => this.isSealedPath(path) : undefined,
         masterKey: options.masterKey,
         files: all.files,
         remove: all.sealedNames,
         expectedVersion: all.version,
-        message: Strings.sync.encryption.rekeyMessage,
+        message:
+          options.names !== undefined && options.names !== stored.encryption.names
+            ? Strings.sync.encryption.renameMessage
+            : Strings.sync.encryption.rekeyMessage,
         options: options.dropHistory ? { keepLast: 1 } : undefined,
       });
       await this.encryption.forgetKey(base, stored.target, stored.encryption);
@@ -393,6 +480,8 @@ export class SyncService implements vscode.Disposable {
    */
   async encryptRepository(options: {
     names: NameMode;
+    /** Encrypt only the files and folders of the list (the others go online as they are). */
+    custom: boolean;
     masterKey: string;
     dropHistory: boolean;
   }): Promise<void> {
@@ -412,6 +501,7 @@ export class SyncService implements vscode.Disposable {
       const result = await this.encryption.rewrite(provider, {
         target: stored.target,
         names: options.names,
+        isSealed: options.custom ? (path) => this.isSealedPath(path) : undefined,
         masterKey: options.masterKey,
         files,
         remove: [...files.keys()],
@@ -422,6 +512,74 @@ export class SyncService implements vscode.Disposable {
       this.logger.info(`Encrypted ${files.size} notes of ${stored.target.label}.`);
       await this.adoptEncryption(stored, result);
     });
+  }
+
+  /**
+   * Turns the encryption of the connected target off: every note is read (the master key is asked when no key is kept here),
+   * sent as plain text at its own path, and the sealed files, the header and the index are removed, as one new version. The
+   * older versions keep the sealed files unless `dropHistory` rewrites the branch as one commit. Other computers that have this
+   * target connected as encrypted must connect again.
+   * @throws SyncRefusedError when nothing is connected, the target is not encrypted, or another action runs.
+   * @throws NoteRootError (from the provider) when the upload is refused or the key is wrong.
+   */
+  async decryptRepository(options: { dropHistory: boolean }): Promise<void> {
+    await this.exclusive(async () => {
+      const { stored } = this.requireConnection();
+      const base = this.baseProviderOf(stored);
+      if (!stored.encryption || !base) {
+        throw new SyncRefusedError(Strings.sync.encryption.notEncrypted);
+      }
+      const all = await this.encryption.readEverything(base, stored.encryption, stored.target);
+      let version = all.version;
+      let hashes: ReadonlyMap<string, string> = new Map();
+      if (version !== undefined) {
+        const result = await this.encryption.reveal(base, stored.encryption, {
+          target: stored.target,
+          files: all.files,
+          remove: all.sealedNames,
+          expectedVersion: all.version,
+          message: Strings.sync.encryption.revealMessage,
+          options: options.dropHistory ? { keepLast: 1 } : undefined,
+        });
+        version = result.version;
+        hashes = result.hashes;
+      } else {
+        await this.encryption.forgetKey(base, stored.target, stored.encryption);
+      }
+      this.logger.info(`Turned the encryption of ${stored.target.label} off.`);
+      await this.adoptPlain(stored, version, hashes);
+    });
+  }
+
+  /** The connection goes back to plain notes: the state of the last sync is what was just sent. */
+  private async adoptPlain(
+    stored: StoredConnection,
+    version: string | undefined,
+    hashes: ReadonlyMap<string, string>
+  ): Promise<void> {
+    const usable = this.usableRemote(
+      {
+        version: version ?? "",
+        files: [...hashes].map(([path, hash]) => ({ path, hash })),
+        truncated: false,
+      },
+      hiddenOf(stored)
+    );
+    await this.store({
+      ...stored,
+      encryption: undefined,
+      version,
+      files: Object.fromEntries(usable.files),
+    });
+    this.remoteCache = undefined;
+    this.lastRemote = undefined;
+    this.knownRemoteVersion = version;
+    this.sealed.clear();
+    // The hashes kept for the files here were the sha256 of the encrypted provider; the service reports its own now.
+    this.hashCache.clear();
+    this.snapshotValue = emptySnapshot();
+    this.changeEmitter.fire();
+    await this.compare();
   }
 
   /** The connection starts to use a new encryption: the state of the last sync is what was just sent. */
@@ -447,8 +605,11 @@ export class SyncService implements vscode.Disposable {
     this.lastRemote = undefined;
     this.knownRemoteVersion = result.version;
     this.sealed.clear();
+    // The hashes kept for the files here were made by the provider that was used until now (the Git hash of the service); the
+    // encrypted provider compares the sha256 of the content, so every file would look changed until they are made again.
+    this.hashCache.clear();
     this.snapshotValue = emptySnapshot();
-    await this.publishConnected();
+    this.changeEmitter.fire();
     await this.compare();
   }
 
@@ -460,11 +621,6 @@ export class SyncService implements vscode.Disposable {
   async setAutoCheck(value: boolean): Promise<void> {
     this.autoCheck = value;
     await this.memento.update(StateKeys.syncAutoCheck, value);
-    await vscode.commands.executeCommand(
-      BuiltinCommands.setContext,
-      ContextKeys.syncAutoCheck,
-      value
-    );
     this.restartTimer();
     if (value) {
       void this.autoCheckNow();
@@ -478,20 +634,22 @@ export class SyncService implements vscode.Disposable {
 
   /**
    * Sends the changes made here as one new version (one commit). Refused when the remote has versions that were not
-   * pulled: the pull comes first, like in git.
+   * pulled: the pull comes first, like in git. The paths in `options.skip` are left out of this push and stay changed here.
    * @throws SyncRefusedError when nothing is connected, another action runs, or a pull is needed first.
    * @throws NoteRootError (from the provider) when the service refuses or cannot be reached.
    */
-  async push(message: string): Promise<PushResult> {
+  async push(message: string, options: { skip?: readonly string[] } = {}): Promise<PushResult> {
     return this.exclusive(async () => {
       const { stored, provider } = this.requireConnection();
       const remote = await this.loadRemote(provider, stored.target, true, hiddenOf(stored));
       if (remote.version !== stored.version) {
         throw new SyncRefusedError(Strings.sync.pullFirst);
       }
-      const base = baseOf(stored);
+      const base = this.baseFor(stored);
       const local = await this.scanLocal(provider, hiddenOf(stored));
-      const changes = diffStates(base, local.files);
+      // The files in `skip` stay as local changes: they are not sent, and the base keeps their old state.
+      const left = new Set(options.skip ?? []);
+      const changes = diffStates(base, local.files).filter((change) => !left.has(change.path));
       if (changes.length === 0) {
         await this.compare();
         return { files: 0 };
@@ -539,7 +697,7 @@ export class SyncService implements vscode.Disposable {
     return this.exclusive(async () => {
       const { stored, provider } = this.requireConnection();
       const remote = await this.loadRemote(provider, stored.target, true, hiddenOf(stored));
-      const base = baseOf(stored);
+      const base = this.baseFor(stored);
       const local = await this.scanLocal(provider, hiddenOf(stored));
       const plan = planPull(base, local.files, remote.files);
 
@@ -571,6 +729,7 @@ export class SyncService implements vscode.Disposable {
         decisions = answer;
       }
 
+      this.choices.clear(); // They were used by the questions above; a new conflict starts without a choice.
       const writes: { path: string; hash: string; to: string }[] = [];
       const trashes: string[] = [];
       const copies: string[] = [];
@@ -669,7 +828,7 @@ export class SyncService implements vscode.Disposable {
   async checkForNewVersion(): Promise<boolean> {
     const stored = this.readStored();
     const provider = stored ? this.providerOf(stored) : undefined;
-    if (!stored || !provider || this.running) {
+    if (!stored || !provider || this.lock.running) {
       return false;
     }
     this.knownRemoteVersion = await provider.currentVersion(stored.target);
@@ -713,7 +872,7 @@ export class SyncService implements vscode.Disposable {
     this.knownRemoteVersion = remote.version;
     this.remoteChecked = true;
     this.snapshotValue = {
-      status: compareStates(baseOf(stored), local.files, remote.files),
+      status: compareStates(this.baseFor(stored), local.files, remote.files),
       checkedAt: new Date(),
       hasNewVersion: this.hasNewVersion(stored),
       remoteCompared: true,
@@ -767,6 +926,9 @@ export class SyncService implements vscode.Disposable {
         }
         continue;
       }
+      if (this.isIgnored(entry.path)) {
+        continue; // On the list of the files not synced.
+      }
       if (entry.path !== CONFIG_PATH && !includeHidden && this.isHidden(entry.path)) {
         continue; // Hidden by the exclude patterns of this folder, like the search and the tags do.
       }
@@ -798,6 +960,9 @@ export class SyncService implements vscode.Disposable {
         }
         continue;
       }
+      if (this.isIgnored(file.relativePath)) {
+        continue; // On the list of the files not synced.
+      }
       if (++count > MAX_SYNC_FILES) {
         throw new SyncRefusedError(Strings.sync.tooManyFiles(MAX_SYNC_FILES));
       }
@@ -828,15 +993,23 @@ export class SyncService implements vscode.Disposable {
         this.logger.warn(`Skipped "${path}": bigger than ${MAX_FILE_BYTES / 1_000_000} MB.`);
         return undefined;
       }
+      // The hash of nothing tells which hash the provider makes (the Git hash of a service, or the sha256 of an encrypted
+      // target), so a hash made another way is never taken for this one.
+      const kind = provider.hash(new Uint8Array(0));
       const cached = this.hashCache.get(path);
-      if (cached && cached.mtime === stat.mtime && cached.size === stat.size) {
+      if (
+        cached &&
+        cached.kind === kind &&
+        cached.mtime === stat.mtime &&
+        cached.size === stat.size
+      ) {
         return cached.sha;
       }
       const sha = provider.hash(await vscode.workspace.fs.readFile(uri));
       // A file changed a moment ago could be changed again with the same size and the same time stamp, so only a file that
       // has been still for a while is remembered (the same care Git takes with its index).
       if (Date.now() - stat.mtime > HASH_CACHE_MIN_AGE_MS) {
-        this.hashCache.set(path, { mtime: stat.mtime, size: stat.size, sha });
+        this.hashCache.set(path, { mtime: stat.mtime, size: stat.size, sha, kind });
       }
       return sha;
     } catch {
@@ -875,6 +1048,22 @@ export class SyncService implements vscode.Disposable {
     }
   }
 
+  /** Whether the list of the files not synced chooses this path, by its own name or by a folder above it. The config file is always synced. */
+  isIgnored(path: string): boolean {
+    if (path === CONFIG_PATH) {
+      return false;
+    }
+    const segments = path.split("/");
+    return segments.some((segment, index) =>
+      this.ignoreMatcher.isExcluded(segment, segments.slice(0, index + 1).join("/"))
+    );
+  }
+
+  /** What was synced last, without the paths that the list of the files not synced leaves alone (they are not compared at all). */
+  private baseFor(stored: StoredConnection): Map<string, string> {
+    return new Map([...baseOf(stored)].filter(([path]) => !this.isIgnored(path)));
+  }
+
   /** Whether one of the parts of the path is hidden by the exclude patterns of the folder. */
   private isHidden(path: string): boolean {
     const parts = path.split("/");
@@ -886,15 +1075,15 @@ export class SyncService implements vscode.Disposable {
   // ----- state -----
 
   private async exclusive<T>(action: () => Promise<T>): Promise<T> {
-    if (this.running) {
+    if (this.lock.running) {
       throw new SyncRefusedError(Strings.sync.busy);
     }
-    this.running = true;
+    this.lock.running = true;
     this.changeEmitter.fire();
     try {
       return await action();
     } finally {
-      this.running = false;
+      this.lock.running = false;
       this.changeEmitter.fire();
     }
   }
@@ -913,8 +1102,24 @@ export class SyncService implements vscode.Disposable {
     this.changeEmitter.fire();
   }
 
+  /** The key of this service's connection for the current notes folder: the folder and the service. */
   private rootKey(): string | undefined {
-    return this.rootService.getRootUri()?.toString();
+    const root = this.rootService.getRootUri()?.toString();
+    return root ? `${root}#${this.provider.id}` : undefined;
+  }
+
+  /** Before there could be several services, the connection was kept under the folder alone: it is still read, and moved on the next write. */
+  private legacy(all: Record<string, StoredConnection>): StoredConnection | undefined {
+    const root = this.rootService.getRootUri()?.toString();
+    const old = root ? all[root] : undefined;
+    return old?.provider === this.provider.id ? old : undefined;
+  }
+
+  private dropLegacy(all: Record<string, StoredConnection>): void {
+    const root = this.rootService.getRootUri()?.toString();
+    if (root && this.legacy(all)) {
+      delete all[root];
+    }
   }
 
   private requireRootKey(): string {
@@ -927,7 +1132,11 @@ export class SyncService implements vscode.Disposable {
 
   private readStored(): StoredConnection | undefined {
     const key = this.rootKey();
-    return key ? this.readAll()[key] : undefined;
+    if (!key) {
+      return undefined;
+    }
+    const all = this.readAll();
+    return all[key] ?? this.legacy(all);
   }
 
   /** The stored connection and its provider. @throws SyncRefusedError when there is none or the service is gone. */
@@ -944,6 +1153,30 @@ export class SyncService implements vscode.Disposable {
     return { stored, provider };
   }
 
+  /**
+   * What happens to a changed file when it is sent: `encrypted` (the target is encrypted, and either every note is or the list
+   * chooses this one), `listed-plain` (it is on the list of the files to encrypt, but the target is not encrypted, so it would
+   * go online readable), or null. A deleted file has neither.
+   */
+  sealOf(change: Change): "encrypted" | "listed-plain" | null {
+    if (change.kind === "deleted") {
+      return null;
+    }
+    const encryption = this.readStored()?.encryption;
+    if (encryption) {
+      return !encryption.custom || this.isSealedPath(change.path) ? "encrypted" : null;
+    }
+    return this.isSealedPath(change.path) ? "listed-plain" : null;
+  }
+
+  /** Whether the list of files to encrypt chooses this note: by its own name or by a folder above it (read at every call). */
+  isSealedPath(path: string): boolean {
+    const segments = path.split("/");
+    return segments.some((segment, index) =>
+      this.encryptMatcher.isExcluded(segment, segments.slice(0, index + 1).join("/"))
+    );
+  }
+
   private providerOf(stored: StoredConnection): SyncProvider | undefined {
     const base = this.providers.find((provider) => provider.id === stored.provider);
     if (!base || !stored.encryption) {
@@ -952,7 +1185,11 @@ export class SyncService implements vscode.Disposable {
     const id = `${stored.provider}|${stored.target.id}|${stored.encryption.salt}`;
     let wrapped = this.sealed.get(id);
     if (!wrapped) {
-      wrapped = this.encryption.wrap(base, stored.encryption);
+      wrapped = this.encryption.wrap(
+        base,
+        stored.encryption,
+        stored.encryption.custom ? (path) => this.isSealedPath(path) : undefined
+      );
       this.sealed.set(id, wrapped);
     }
     return wrapped;
@@ -965,6 +1202,7 @@ export class SyncService implements vscode.Disposable {
   private async store(connection: StoredConnection): Promise<void> {
     const all = this.readAll();
     all[this.requireRootKey()] = connection;
+    this.dropLegacy(all);
     await this.memento.update(StateKeys.sync, all);
   }
 
@@ -978,26 +1216,13 @@ export class SyncService implements vscode.Disposable {
     this.lastRemote = undefined;
     this.sealed.clear();
     this.hashCache.clear();
+    this.choices.clear();
   }
 
   private onRootChanged(): void {
     this.resetRuntime();
-    void this.publishConnected().then(() => this.showLocalChanges());
+    void this.showLocalChanges();
     this.changeEmitter.fire();
-  }
-
-  private async publishConnected(): Promise<void> {
-    const stored = this.readStored();
-    await vscode.commands.executeCommand(
-      BuiltinCommands.setContext,
-      ContextKeys.syncConnected,
-      stored !== undefined
-    );
-    await vscode.commands.executeCommand(
-      BuiltinCommands.setContext,
-      ContextKeys.syncEncrypted,
-      stored?.encryption !== undefined
-    );
   }
 
   // ----- the local changes follow the files -----
@@ -1025,21 +1250,21 @@ export class SyncService implements vscode.Disposable {
     if (!connection || !stored || !this.snapshotValue.status) {
       return;
     }
-    if (this.running || this.rescanning) {
+    if (this.lock.running || this.rescanning) {
       this.scheduleLocalRefresh(); // Try again when it is free.
       return;
     }
     this.rescanning = true;
     try {
       const local = await this.scanLocal(connection.provider, hiddenOf(stored));
-      if (this.running || this.lastRemote !== remote) {
+      if (this.lock.running || this.lastRemote !== remote) {
         return; // An action started meanwhile: it makes its own comparison.
       }
       this.update({
         // Without a remote that was read, only the files here are compared with the last sync.
         status: remote
-          ? compareStates(baseOf(stored), local.files, remote.files)
-          : localOnly(baseOf(stored), local.files),
+          ? compareStates(this.baseFor(stored), local.files, remote.files)
+          : localOnly(this.baseFor(stored), local.files),
         skipped: local.skipped + (remote?.skipped ?? 0),
       });
     } catch (error) {
@@ -1057,16 +1282,22 @@ export class SyncService implements vscode.Disposable {
   private async showLocalChanges(): Promise<void> {
     const connection = this.connection;
     const stored = this.readStored();
-    if (!connection || !stored || this.snapshotValue.status || this.running || this.rescanning) {
+    if (
+      !connection ||
+      !stored ||
+      this.snapshotValue.status ||
+      this.lock.running ||
+      this.rescanning
+    ) {
       return;
     }
     this.rescanning = true;
     try {
       const local = await this.scanLocal(connection.provider, hiddenOf(stored));
-      if (this.snapshotValue.status || this.running) {
+      if (this.snapshotValue.status || this.lock.running) {
         return; // A real comparison came meanwhile.
       }
-      this.update({ status: localOnly(baseOf(stored), local.files), skipped: local.skipped });
+      this.update({ status: localOnly(this.baseFor(stored), local.files), skipped: local.skipped });
     } catch (error) {
       this.logger.debug(`The local changes could not be shown: ${describeError(error)}`);
     } finally {
@@ -1077,7 +1308,7 @@ export class SyncService implements vscode.Disposable {
   /** The comparison with the remote at the start (automatic check on): quiet on failure, one notice for a new version. */
   private async autoRefreshNow(): Promise<void> {
     const connection = this.connection;
-    if (!this.autoCheck || !connection || this.running) {
+    if (!this.autoCheck || !connection || this.lock.running) {
       return;
     }
     try {
@@ -1106,7 +1337,7 @@ export class SyncService implements vscode.Disposable {
   /** The background check: quiet on failure (no sign-in, no network), and one notice per new version. */
   private async autoCheckNow(): Promise<void> {
     const connection = this.connection;
-    if (!this.autoCheck || !connection || this.running || !vscode.window.state.focused) {
+    if (!this.autoCheck || !connection || this.lock.running || !vscode.window.state.focused) {
       return;
     }
     try {
@@ -1166,7 +1397,11 @@ function readEncryption(value: unknown): EncryptionConfig | undefined {
   return item &&
     (item.names === "plain" || item.names === "hidden") &&
     typeof item.salt === "string"
-    ? { names: item.names, salt: item.salt }
+    ? {
+        names: item.names,
+        salt: item.salt,
+        ...(item.custom === true ? { custom: true as const } : {}),
+      }
     : undefined;
 }
 

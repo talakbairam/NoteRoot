@@ -304,7 +304,9 @@ foreach ($property in $files) {
   }
   $sealedPath = [System.IO.Path]::Combine($repositoryPath, $entry.name.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
   try {
-    $plain = Open-Sealed ([System.IO.File]::ReadAllBytes($sealedPath)) $relative
+    $bytes = [System.IO.File]::ReadAllBytes($sealedPath)
+    # A note the user chose to leave unencrypted (plain = true) is online as it is; its hash is still checked below.
+    if ($entry.plain -eq $true) { $plain = $bytes } else { $plain = Open-Sealed $bytes $relative }
   } catch {
     [Console]::Error.WriteLine("Skipped $($relative): its file is missing, damaged or was changed.")
     continue

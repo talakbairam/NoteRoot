@@ -81,6 +81,11 @@ export class GitHubSyncProvider implements SyncProvider {
     private readonly auth: GitHubAuth
   ) {}
 
+  webUrl(target: RemoteTarget): string {
+    const { owner, name } = parse(target);
+    return `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  }
+
   hash(bytes: Uint8Array): string {
     return gitBlobSha(bytes);
   }

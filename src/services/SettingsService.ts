@@ -12,17 +12,23 @@ import {
   SettingDefaults,
   SettingKeys,
   HeadingLevels,
+  isValidDropboxAppKey,
   isValidTagLine,
   QuickNotePositions,
+  SyncMarkedActions,
+  SyncRowsModes,
   SortOrders,
   type HeadingLevel,
   type QuickNotePosition,
+  type SyncMarkedAction,
+  type SyncRowsMode,
   type SettingKey,
   type SortOrder,
 } from "../constants/settings";
 import { Strings } from "../constants/strings";
 import { RootMissingError } from "../util/errors";
 import { Logger } from "./Logger";
+import { normalizeHttpsAddress } from "../util/address";
 
 /** Where the values kept in the notes folder are written. Implemented by `FolderSettingsService`. */
 export interface FolderSettingsStore {
@@ -219,7 +225,8 @@ export class SettingsService implements vscode.Disposable {
     return this.folderValues[key] !== undefined || this.hasVsCodeValue(key);
   }
 
-  private hasVsCodeValue(key: SettingKey): boolean {
+  /** True when the user or a workspace set a VS Code setting (never for a setting that only lives in the notes folder). */
+  hasVsCodeValue(key: SettingKey): boolean {
     if (isFolderOnlyKey(key)) {
       return false;
     }
@@ -344,6 +351,61 @@ export class SettingsService implements vscode.Disposable {
   /** The patterns of the files and folders that automatic tagging leaves alone. */
   get noTagPatterns(): readonly string[] {
     return this.read<readonly string[]>(SettingKeys.noTagPatterns) ?? SettingDefaults.noTagPatterns;
+  }
+
+  /** Whether Push uses the default message without asking for it. */
+  get syncAutoMessage(): boolean {
+    const value = this.read<unknown>(SettingKeys.syncAutoMessage);
+    return typeof value === "boolean" ? value : SettingDefaults.syncAutoMessage;
+  }
+
+  /** Which sync services get a row at the top of the Notes tree. */
+  get syncRows(): SyncRowsMode {
+    const value = this.read<unknown>(SettingKeys.syncRows);
+    return SyncRowsModes.some((mode) => mode === value)
+      ? (value as SyncRowsMode)
+      : SettingDefaults.syncRows;
+  }
+
+  /** What a push does with a file on the list of the files to encrypt when the repository is not encrypted. */
+  get syncMarkedAction(): SyncMarkedAction {
+    const value = this.read<unknown>(SettingKeys.syncMarkedAction);
+    if (SyncMarkedActions.some((action) => action === value)) {
+      return value as SyncMarkedAction;
+    }
+    return SettingDefaults.syncMarkedAction;
+  }
+
+  /** The address of the GitLab of the sync, without a slash at the end (gitlab.com unless the folder says otherwise). */
+  get gitlabAddress(): string {
+    const value = this.read<unknown>(SettingKeys.gitlabAddress);
+    return (
+      (typeof value === "string" ? normalizeHttpsAddress(value) : undefined) ??
+      SettingDefaults.gitlabAddress
+    );
+  }
+
+  /** The patterns of the files and folders that the sync leaves alone. */
+  get syncIgnorePatterns(): readonly string[] {
+    return (
+      this.read<readonly string[]>(SettingKeys.syncIgnorePatterns) ??
+      SettingDefaults.syncIgnorePatterns
+    );
+  }
+
+  /** The app key of the Dropbox app of the user, or "" while there is none. */
+  get dropboxAppKey(): string {
+    const value = this.read<unknown>(SettingKeys.dropboxAppKey);
+    return typeof value === "string" && isValidDropboxAppKey(value)
+      ? value.trim()
+      : SettingDefaults.dropboxAppKey;
+  }
+
+  /** The patterns of the files and folders that the sync encrypts in the "only the chosen files" mode. */
+  get encryptPatterns(): readonly string[] {
+    return (
+      this.read<readonly string[]>(SettingKeys.encryptPatterns) ?? SettingDefaults.encryptPatterns
+    );
   }
 
   /** The lines of the header of a note (empty: no header). */

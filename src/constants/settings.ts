@@ -1,3 +1,5 @@
+import { normalizeHttpsAddress } from "../util/address";
+
 /** Setting keys (relative to the `noteRoot` section) and their defaults. */
 
 export const SETTINGS_SECTION = "noteRoot";
@@ -35,9 +37,24 @@ export const SettingKeys = {
   startAutoTagPatternsOn: "startAutoTagPatternsOn",
   noteHeader: "noteHeader",
   noTagPatterns: "noTagPatterns",
+  syncIgnorePatterns: "syncIgnorePatterns",
+  encryptPatterns: "encryptPatterns",
+  syncMarkedAction: "syncMarkedAction",
+  syncRows: "syncRows",
+  syncAutoMessage: "syncAutoMessage",
+  gitlabAddress: "gitlabAddress",
+  dropboxAppKey: "dropboxAppKey",
 } as const;
 
 /** Where a new Quick Note goes in its file. */
+/** What a push does with a file on the list of the files to encrypt when the repository is not encrypted. */
+export const SyncMarkedActions = ["ask", "plain", "skip", "encrypt"] as const;
+export type SyncMarkedAction = (typeof SyncMarkedActions)[number];
+
+/** Which sync services get a row at the top of the Notes tree: every service, only the one that is connected, or none. */
+export const SyncRowsModes = ["all", "connected", "none"] as const;
+export type SyncRowsMode = (typeof SyncRowsModes)[number];
+
 export const QuickNotePositions = ["end", "start"] as const;
 export type QuickNotePosition = (typeof QuickNotePositions)[number];
 
@@ -87,7 +104,7 @@ export const SettingDefaults = {
     "tex",
     "log",
   ] as readonly string[],
-  maxRecentNotes: 10,
+  maxRecentNotes: 5,
   /** Bigger files are not read by the search, the tag scan and Tag when saving. */
   maxTextFileSizeMB: 1,
   maxSearchResults: 200,
@@ -113,6 +130,20 @@ export const SettingDefaults = {
   noteHeader: ["<!--", "  **Summary:** ", "  **Comment:** ", "-->"] as readonly string[],
   /** Patterns (like the hidden list) of the files and folders that automatic tagging leaves alone. */
   noTagPatterns: [] as readonly string[],
+  /** Patterns (like the hidden list) of the files and folders that the sync leaves alone. */
+  syncIgnorePatterns: [] as readonly string[],
+  /** Patterns (like the hidden list) of the files and folders that the sync encrypts when it encrypts "only the chosen files". */
+  encryptPatterns: [] as readonly string[],
+  /** A marked file is encrypted (with the questions of the encryption), so it never goes online readable by accident. */
+  syncMarkedAction: "encrypt" as SyncMarkedAction,
+  /** Only the services that are connected get a row in the Notes tree (the others are connected from the Sync page). */
+  syncRows: "connected" as SyncRowsMode,
+  /** Push uses the default message of the version without asking for it. */
+  syncAutoMessage: true,
+  /** The GitLab of the sync: gitlab.com, or the address of the GitLab of a company. */
+  gitlabAddress: "https://gitlab.com",
+  /** The app key of the user's own Dropbox app; empty until it is written. */
+  dropboxAppKey: "",
 } as const;
 
 /**
@@ -149,6 +180,13 @@ export const FOLDER_SETTING_KEYS: readonly SettingKey[] = [
   SettingKeys.startAutoTagPatternsOn,
   SettingKeys.noteHeader,
   SettingKeys.noTagPatterns,
+  SettingKeys.syncIgnorePatterns,
+  SettingKeys.encryptPatterns,
+  SettingKeys.syncMarkedAction,
+  SettingKeys.syncRows,
+  SettingKeys.syncAutoMessage,
+  SettingKeys.gitlabAddress,
+  SettingKeys.dropboxAppKey,
 ];
 
 /**
@@ -176,6 +214,13 @@ export const FOLDER_ONLY_KEYS: readonly SettingKey[] = [
   SettingKeys.startAutoTagPatternsOn,
   SettingKeys.noteHeader,
   SettingKeys.noTagPatterns,
+  SettingKeys.syncIgnorePatterns,
+  SettingKeys.encryptPatterns,
+  SettingKeys.syncMarkedAction,
+  SettingKeys.syncRows,
+  SettingKeys.syncAutoMessage,
+  SettingKeys.gitlabAddress,
+  SettingKeys.dropboxAppKey,
 ];
 
 /** The field of `custom` in the config file that holds the settings of the folder. */
@@ -261,7 +306,19 @@ export function isValidFolderValue(key: SettingKey, value: unknown): boolean {
       );
     case SettingKeys.noteHeader:
       return isValidHeader(value);
+    case SettingKeys.syncAutoMessage:
+      return typeof value === "boolean";
+    case SettingKeys.dropboxAppKey:
+      return typeof value === "string" && isValidDropboxAppKey(value);
+    case SettingKeys.gitlabAddress:
+      return typeof value === "string" && normalizeHttpsAddress(value) !== undefined;
+    case SettingKeys.syncRows:
+      return SyncRowsModes.some((mode) => mode === value);
+    case SettingKeys.syncMarkedAction:
+      return SyncMarkedActions.some((action) => action === value);
     case SettingKeys.noTagPatterns:
+    case SettingKeys.syncIgnorePatterns:
+    case SettingKeys.encryptPatterns:
       return Array.isArray(value) && value.every((item) => typeof item === "string");
     case SettingKeys.maxRecentNotes:
       return isInLimits(value, NumberLimits.maxRecentNotes);
@@ -275,6 +332,11 @@ export function isValidFolderValue(key: SettingKey, value: unknown): boolean {
       }
       return FOLDER_BOOLEAN_KEYS.includes(key) && typeof value === "boolean";
   }
+}
+
+/** The app key of a Dropbox app: letters and digits (empty means none yet). */
+export function isValidDropboxAppKey(value: string): boolean {
+  return value.trim() === "" || /^[A-Za-z0-9]{6,40}$/.test(value.trim());
 }
 
 /** A header has at most this many lines, each at most this long and on one line. */
