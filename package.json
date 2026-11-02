@@ -1718,7 +1718,7 @@
   },
   "devDependencies": {
     "@types/node": "26.x",
-    "@types/vscode": "^1.140.0",
+    "@types/vscode": "^1.144.0",
     "@vscode/vsce": "^4.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.13.0",
