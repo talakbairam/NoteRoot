@@ -66,6 +66,7 @@ NoteRoot has no automated tests, so check these by hand before a release. Press 
 - [ ] Search finds file names, folder names and text (2+ characters), shows the matching line, opens the note at that line and reveals it in the tree.
 - [ ] **Pin Note** / **Unpin Note**; pins follow a rename or move and survive a missing drive. The **Pinned** and **Recent** groups are the first rows of the Notes tree, above the folders (both are always there, with their count, also 0); the eye button on a row turns the group off (`n · off`, its notes are hidden, nothing is deleted) and on again, and while Recent is off new notes are not remembered; Recent lists the last opened notes; remove one, clear all (the button on the Recent row). A click opens the note; dragging a folder onto a group row drops it into the notes folder; Expand All, Collapse All and Ctrl+Z still work.
 - [ ] The same note pinned and recent shows in both groups without errors.
+- [ ] **Favorites** is the first group of the Notes tree: a file and a folder can be added (right-click ▸ **Add to Favorites**) and removed. Renaming keeps them, and the eye button hides the group without losing them.
 
 ## Settings page
 
@@ -75,6 +76,9 @@ NoteRoot has no automated tests, so check these by hand before a release. Press 
 - [ ] **Reset** appears only on changed rows; the folder value is removed first, a second reset removes the user value. Rows show **this folder** when the notes folder has its own value. The search box and **Only changed** work.
 - [ ] A change made in the VS Code Settings editor shows up in the page at once.
 - [ ] The last section, **Files and logs**, opens the config file, the logs and the VS Code Settings editor. **Sort Notes By…** is in the Command Palette only; the page has the same choice as **Sort notes by**.
+- [ ] **Sidebar** shows the Sync, Favorites, Pinned and Recent rows with a preview of the tree. Move, hide and **Add blank row** change the Notes tree at once; **Back to the default** undoes it.
+- [ ] The choice is still there after a restart. Without a notes folder a change is refused with one message.
+- [ ] Every setting has a tag icon: hovering it shows the tags, a click on one searches for it, and a search such as `pinned` finds the settings that match it.
 
 ## Tags & Categories page
 

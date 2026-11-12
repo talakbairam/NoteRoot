@@ -28,6 +28,7 @@ import {
   type GoogleClientStore,
 } from "./GoogleClientStore";
 import type { SavedSecretsService } from "./SavedSecretsService";
+import type { SidebarLayoutService } from "./SidebarLayoutService";
 import type { SettingsService } from "./SettingsService";
 
 /** What the catalog reads from and writes to. */
@@ -41,6 +42,8 @@ export interface SettingsContext {
   googleAuth: GoogleAuth;
   /** What NoteRoot keeps in the secret storage, with a way to take each part away. */
   savedSecrets: SavedSecretsService;
+  /** The order and the visibility of the rows at the top of the Notes tree. */
+  sidebarLayout: SidebarLayoutService;
 }
 
 /** The groups of the Settings page, in the order it shows them (see {@link SETTING_GROUP_ORDER}). */

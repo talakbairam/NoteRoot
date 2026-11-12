@@ -25,6 +25,8 @@ export const ContextKeys = {
   pinnedOn: "noteRoot.pinnedOn",
   /** True while the Recent group shows its notes and notes opened are remembered. Swaps its turn on and turn off buttons. */
   recentOn: "noteRoot.recentOn",
+  /** True while the Favorites group of the Notes tree shows its items (it is on). Swaps its turn on and turn off buttons. */
+  favoritesOn: "noteRoot.favoritesOn",
   /** True while this notes folder is connected to a GitHub repository. Drives the sync commands of the palette. */
   syncConnected: "noteRoot.syncConnected",
   /** True while the connected target is encrypted. Shows the key commands of the Actions menu. */
@@ -66,6 +68,8 @@ export const StateKeys = {
   pinnedOn: "noteRoot.pinnedOn",
   /** Whether the Recent group shows its notes and remembers new ones (per machine; on when nothing is stored). */
   recentOn: "noteRoot.recentOn",
+  /** Whether the Favorites group shows its items (per machine; on when nothing is stored). */
+  favoritesOn: "noteRoot.favoritesOn",
   /** Where the Google client of the user is kept when it is typed: `local` or `config` (per machine). */
   googleClientPlace: "noteRoot.googleClientPlace",
   walkthroughShown: "noteRoot.walkthroughShown",

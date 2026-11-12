@@ -2,7 +2,7 @@
   "name": "noteroot",
   "displayName": "NoteRoot",
   "description": "Notes in a folder you choose: a notes tree, a Quick Note box, tags and categories, and optional encrypted sync to GitHub.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "talakbairam",
   "license": "GPL-3.0",
   "repository": {
@@ -311,6 +311,24 @@
         "command": "noteRoot.disableRecent",
         "title": "Hide Recent Notes",
         "icon": "$(eye-closed)"
+      },
+      {
+        "command": "noteRoot.enableFavorites",
+        "title": "Show Favorites",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "noteRoot.disableFavorites",
+        "title": "Hide Favorites",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "noteRoot.addToFavorites",
+        "title": "Add to Favorites"
+      },
+      {
+        "command": "noteRoot.removeFromFavorites",
+        "title": "Remove from Favorites"
       },
       {
         "command": "noteRoot.removeFromRecent",
@@ -862,6 +880,22 @@
           "when": "false"
         },
         {
+          "command": "noteRoot.enableFavorites",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.disableFavorites",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.addToFavorites",
+          "when": "false"
+        },
+        {
+          "command": "noteRoot.removeFromFavorites",
+          "when": "false"
+        },
+        {
           "command": "noteRoot.changeQuickNoteFile",
           "when": "noteRoot.hasRoot"
         },
@@ -1223,6 +1257,11 @@
           "group": "2_open@4"
         },
         {
+          "command": "noteRoot.addToFavorites",
+          "when": "view == noteRoot.tree && viewItem =~ /^noteRoot\\.(file|folder)/",
+          "group": "2_open@5"
+        },
+        {
           "command": "noteRoot.clearRecent",
           "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.recent.on",
           "group": "inline@1"
@@ -1235,6 +1274,16 @@
         {
           "command": "noteRoot.disablePinned",
           "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.pinned.on",
+          "group": "inline@2"
+        },
+        {
+          "command": "noteRoot.enableFavorites",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.favorites.off",
+          "group": "inline@2"
+        },
+        {
+          "command": "noteRoot.disableFavorites",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.pinnedRecentGroup.favorites.on",
           "group": "inline@2"
         },
         {
@@ -1261,6 +1310,16 @@
           "command": "noteRoot.pinNote",
           "when": "view == noteRoot.tree && viewItem == noteRoot.recentItem",
           "group": "2_modify@0"
+        },
+        {
+          "command": "noteRoot.revealInTree",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.favoriteItem",
+          "group": "1_navigate@1"
+        },
+        {
+          "command": "noteRoot.removeFromFavorites",
+          "when": "view == noteRoot.tree && viewItem == noteRoot.favoriteItem",
+          "group": "2_modify@1"
         },
         {
           "command": "noteRoot.revealInTree",
@@ -1719,9 +1778,9 @@
   "devDependencies": {
     "@types/node": "26.x",
     "@types/vscode": "^1.140.0",
-    "@vscode/vsce": "^4.0.0",
+    "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.1",
-    "eslint": "^10.13.0",
+    "eslint": "^10.14.0",
     "npm-run-all": "^4.1.5",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",

@@ -49,6 +49,7 @@ import { SettingsService } from "./services/SettingsService";
 import { NoteDecorationProvider } from "./tree/NoteDecorationProvider";
 import { ShowHiddenService } from "./services/ShowHiddenService";
 import { PinnedRecentSwitches } from "./services/PinnedRecentSwitches";
+import { SidebarLayoutService } from "./services/SidebarLayoutService";
 import { ShowEncryptedService } from "./services/ShowEncryptedService";
 import { ShowUnsyncedService } from "./services/ShowUnsyncedService";
 import { ShowNoTagService } from "./services/ShowNoTagService";
@@ -145,12 +146,20 @@ export function activate(context: vscode.ExtensionContext): void {
     settings
   );
   const pinnedService = new PinnedNotesService(rootService, configService, pathGuard, logger);
-  // Not a view of its own: it supplies the Pinned and Recent groups at the top of the Notes tree.
+  const favoritesService = new PinnedNotesService(
+    rootService,
+    configService,
+    pathGuard,
+    logger,
+    "favorites"
+  );
+  // Not a view of its own: it supplies the Favorites, Pinned and Recent groups at the top of the Notes tree.
   const pinnedRecentSwitches = new PinnedRecentSwitches(context.globalState);
   recentService.setRecording(pinnedRecentSwitches.isEnabled("recent"));
   const pinnedRecentProvider = new PinnedRecentProvider(
     recentService,
     pinnedService,
+    favoritesService,
     treeProvider,
     pinnedRecentSwitches
   );
@@ -259,6 +268,9 @@ export function activate(context: vscode.ExtensionContext): void {
   );
   // The sync at a glance: the first row of the Notes tree.
   treeProvider.attachSync(syncService, context.extensionUri);
+  // The order of the rows at the top of the tree, and which are shown (changed on the Settings page).
+  const sidebarLayout = new SidebarLayoutService(rootService, configService, logger);
+  treeProvider.attachSidebarLayout(sidebarLayout);
   const settingsContext = {
     settings,
     advancedMode,
@@ -267,6 +279,7 @@ export function activate(context: vscode.ExtensionContext): void {
     googleClientStore,
     googleAuth,
     savedSecrets,
+    sidebarLayout,
   };
   const settingsPage = new SettingsPageProvider(context.extensionUri, settingsContext, logger);
   const labelsProvider = new LabelsTreeProvider(
@@ -334,6 +347,8 @@ export function activate(context: vscode.ExtensionContext): void {
     pinnedRecentSwitches,
     pinnedRecentProvider,
     pinnedService,
+    favoritesService,
+    sidebarLayout,
     labelsProvider,
     // canSelectMany: Ctrl and Shift click select several tags and categories (delete, remove file or keyword work on all of them).
     vscode.window.createTreeView(ViewIds.labels, {
@@ -373,6 +388,7 @@ export function activate(context: vscode.ExtensionContext): void {
     recentService,
     pinnedRecentSwitches,
     pinnedService,
+    favoritesService,
     labelsProvider,
     labelsPage,
     autoCategories,

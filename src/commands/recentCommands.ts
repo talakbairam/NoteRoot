@@ -20,8 +20,8 @@ export interface RecentCommandDependencies {
 export function registerRecentCommands(deps: RecentCommandDependencies): void {
   const { context, logger, recentService, pinnedRecentSwitches, navigator } = deps;
 
-  // The buttons of the Pinned and Recent rows: two commands for each group that swap, because a contributed command cannot
-  // change its own title (the context keys `noteRoot.pinnedOn` and `noteRoot.recentOn` decide which one is shown).
+  // The buttons of the Favorites, Pinned and Recent rows: two commands for each group that swap, because a contributed command
+  // cannot change its own title (the context keys `noteRoot.favoritesOn`, `noteRoot.pinnedOn` and `noteRoot.recentOn` decide which one is shown).
   const text = Strings.pinnedRecent;
   registerSafeCommand(context, logger, Commands.enablePinned, async () => {
     await pinnedRecentSwitches.setEnabled("pinned", true);
@@ -30,6 +30,14 @@ export function registerRecentCommands(deps: RecentCommandDependencies): void {
   registerSafeCommand(context, logger, Commands.disablePinned, async () => {
     await pinnedRecentSwitches.setEnabled("pinned", false);
     showStatus(text.pinnedOff);
+  });
+  registerSafeCommand(context, logger, Commands.enableFavorites, async () => {
+    await pinnedRecentSwitches.setEnabled("favorites", true);
+    showStatus(text.favoritesOn);
+  });
+  registerSafeCommand(context, logger, Commands.disableFavorites, async () => {
+    await pinnedRecentSwitches.setEnabled("favorites", false);
+    showStatus(text.favoritesOff);
   });
   registerSafeCommand(context, logger, Commands.enableRecent, async () => {
     await pinnedRecentSwitches.setEnabled("recent", true);
