@@ -4,7 +4,10 @@ import { PinnedRecentSwitches } from "../services/PinnedRecentSwitches";
 import { RecentNotesService } from "../services/RecentNotesService";
 import { NoteItem } from "./NoteItem";
 import type { NotesTreeProvider } from "./NotesTreeProvider";
+import { Commands } from "../constants/commands";
+import { Strings } from "../constants/strings";
 import {
+  FAVORITE_ITEM_CONTEXT,
   PINNED_ITEM_CONTEXT,
   PinnedRecentGroupItem,
   RECENT_ITEM_CONTEXT,
@@ -13,10 +16,11 @@ import {
 } from "./NotesNode";
 
 /**
- * "Pinned & Recent": the notes the user pinned (in the order they were pinned) and the notes opened last (newest first), in two
- * groups at the top of the Notes tree. Both groups are always there, with their count (also 0). A group that is switched off
- * shows no notes and says "off". A click opens the note. The same note can be in both groups, so the ids of the rows carry
- * the group.
+ * "Favorites, Pinned & Recent": the files and folders the user added to the favorites, the notes pinned (both in the order they
+ * were added) and the notes opened last (newest first), in three groups at the top of the Notes tree. The groups are always
+ * there, with their count (also 0). A group that is switched off shows nothing and says "off". A click opens a note; a favorite
+ * folder does not open or expand, a click shows it in the tree. The same note can be in several groups, so the ids of the rows
+ * carry the group.
  */
 export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>, vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
@@ -29,6 +33,7 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
   constructor(
     private readonly recentService: RecentNotesService,
     private readonly pinnedService: PinnedNotesService,
+    private readonly favoritesService: PinnedNotesService,
     private readonly treeProvider: NotesTreeProvider,
     private readonly switches: PinnedRecentSwitches
   ) {
@@ -40,6 +45,7 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
       this.changeEmitter,
       recentService.onDidChange(changed),
       pinnedService.onDidChange(changed),
+      favoritesService.onDidChange(changed),
       switches.onDidChange(changed),
     ];
   }
@@ -58,7 +64,7 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
     }
     this.cache = undefined; // The view asks for the top again when it is refreshed: read the notes again.
     const notes = await this.read();
-    return (["pinned", "recent"] as const).map(
+    return (["favorites", "pinned", "recent"] as const).map(
       (group) =>
         new PinnedRecentGroupItem(group, notes[group].length, this.switches.isEnabled(group))
     );
@@ -74,6 +80,14 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
   }
 
   private async load(): Promise<Record<PinnedRecentGroup, NoteItem[]>> {
+    const favorites: NoteItem[] = [];
+    // A favorite that is gone (or hidden) stays in the config file for the same reason as a pin.
+    for (const path of await this.favoritesService.list()) {
+      const item = await this.toItem(path, "favorites", FAVORITE_ITEM_CONTEXT);
+      if (item) {
+        favorites.push(item);
+      }
+    }
     const pinned: NoteItem[] = [];
     // A pinned note that is gone (or hidden) is not shown, but it stays in the config file: it is the user's file and a drive
     // that comes back should bring the pin back too.
@@ -93,7 +107,7 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
         this.recentService.remove(path, { silent: true });
       }
     }
-    return { pinned, recent };
+    return { favorites, pinned, recent };
   }
 
   private async toItem(
@@ -102,7 +116,8 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
     contextValue: string
   ): Promise<NoteItem | undefined> {
     const item = await this.treeProvider.resolveItem(path);
-    if (item?.kind !== "file") {
+    // Pinned and Recent hold files; Favorites also holds folders (a link to a folder is not offered, like for a move).
+    if (item?.kind !== "file" && !(group === "favorites" && item?.kind === "folder")) {
       return undefined;
     }
     // The folder next to the name tells apart notes with the same name.
@@ -110,6 +125,15 @@ export class PinnedRecentProvider implements vscode.TreeDataProvider<NotesNode>,
     item.description = slash > 0 ? path.slice(0, slash) : undefined;
     item.contextValue = contextValue;
     item.id = `${group}:${path}`;
+    if (item.kind === "folder") {
+      // The folder row of the real tree expands, and its children would repeat the ids of that tree: here a click shows it there.
+      item.collapsibleState = vscode.TreeItemCollapsibleState.None;
+      item.command = {
+        command: Commands.revealInTree,
+        title: Strings.pinnedRecent.reveal,
+        arguments: [item],
+      };
+    }
     return item;
   }
 }

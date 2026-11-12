@@ -37,7 +37,7 @@ Your notes are plain files in a folder you pick. NoteRoot is built so you can tr
 
 - **Notes tree.** Browse the notes folder like the Explorer: create, rename, duplicate and delete (to the Trash), drag and drop, and drag files in from outside. **Undo** takes back the last rename or move. Sort by name or by date modified.
 - **Search.** Find notes by file name or by text. A result opens at its line and is shown in the tree. It reads text files up to 1 MB and shows the first 200 results.
-- **Pinned and Recent.** Pin the notes you need most; the last ones you opened are listed under them. Both follow a note when you rename or move it.
+- **Favorites, Pinned and Recent.** Add files and folders to the favorites, pin the notes you need most, and the last ones you opened are listed under them. They follow an item when you rename or move it.
 - **Note header.** Write a header once (for example a comment with a few fields such as *Summary* and *Comment*) and every new note starts with it. **Add ▸ Header** puts it into an existing note.
 - **More sync services (optional).** GitLab, Dropbox and Google Drive work like GitHub, with the same pages and options. Each needs a one-time setup (a token, or an app key for your own Dropbox app); the Sync page shows the steps. You can connect several at once.
 - **Hide what you don't want.** **Hide from NoteRoot** keeps a file or folder out of the tree, search and tags; **Show Hidden Items** brings them back in the tree. **Don't Auto-Tag** keeps them out of automatic tagging only.
@@ -55,6 +55,7 @@ Your notes are plain files in a folder you pick. NoteRoot is built so you can tr
 
 - **Sync.** Push your notes to GitHub, GitLab, Dropbox or Google Drive and pull them on another computer, with no git and no other app. It can be encrypted. See below.
 - **Settings page.** Every setting is in one page (**Open Settings Page** in the `...` menu of the Notes view), with search, defaults and Reset. Settings that belong to your notes are saved in the notes folder, so they travel with it (and with Sync).
+- **Sidebar section** (Settings page). Choose which rows are at the top of the Notes tree (the sync rows, Favorites, Pinned, Recent), move them up and down and hide the ones you do not need, with a preview of the result.
 - **Tags & Categories page.** The pencil button of the Tags & Categories panel opens everything in an editor tab: categories, tags, tag patterns, the categories of every file and the two automatic switches, with their notes and files.
 
 ## Sync

@@ -6,16 +6,18 @@ import type { PinnedRecentGroup } from "../tree/NotesNode";
 const STATE_KEYS: Record<PinnedRecentGroup, string> = {
   pinned: StateKeys.pinnedOn,
   recent: StateKeys.recentOn,
+  favorites: StateKeys.favoritesOn,
 };
 const CONTEXT_KEYS: Record<PinnedRecentGroup, string> = {
   pinned: ContextKeys.pinnedOn,
   recent: ContextKeys.recentOn,
+  favorites: ContextKeys.favoritesOn,
 };
 
 /**
- * The on/off switch of each of the "Pinned" and "Recent" groups of the Notes tree. While a group is off it shows no notes (its
- * row stays, marked "off") and Recent stops remembering new notes. Nothing is deleted: a pin stays in the config file and the
- * recent list stays as it was. Both are on at first. The state is remembered per machine and published as context keys, which
+ * The on/off switch of each of the "Favorites", "Pinned" and "Recent" groups of the Notes tree. While a group is off it shows no
+ * notes (its row stays, marked "off") and Recent stops remembering new notes. Nothing is deleted: a favorite or a pin stays in
+ * the config file and the recent list stays as it was. All are on at first. The state is remembered per machine and published as context keys, which
  * swap the turn on and turn off buttons of the group rows.
  */
 export class PinnedRecentSwitches implements vscode.Disposable {
@@ -29,6 +31,7 @@ export class PinnedRecentSwitches implements vscode.Disposable {
     this.enabled = {
       pinned: memento.get<unknown>(STATE_KEYS.pinned) !== false,
       recent: memento.get<unknown>(STATE_KEYS.recent) !== false,
+      favorites: memento.get<unknown>(STATE_KEYS.favorites) !== false,
     };
   }
 
@@ -40,6 +43,7 @@ export class PinnedRecentSwitches implements vscode.Disposable {
   async initialize(): Promise<void> {
     await this.publish("pinned");
     await this.publish("recent");
+    await this.publish("favorites");
   }
 
   async setEnabled(group: PinnedRecentGroup, value: boolean): Promise<void> {

@@ -13,6 +13,9 @@
 	let searchBox = null;
 	let changedBox = null;
 	let nothing = null;
+	/** The Sidebar section: its box, and the button to give the focus back to after the lists are drawn again. */
+	let sidebarBox = null;
+	let sidebarFocus = null;
 	/** The nav buttons by section id, and the section the page shows (kept when the page is hidden and shown again). */
 	const navButtons = new Map();
 	let current = (vscode.getState() || {}).section || null;
@@ -37,6 +40,41 @@
 		return textarea.value.split(/\r?\n/).filter((line) => line !== '');
 	}
 
+	/** A small tag icon; while the pointer or the focus is on it, the tags of the setting show, and a click on one searches for it. */
+	function tagsMenu(tags) {
+		const wrap = element('span', 'tags');
+		if (!tags || tags.length === 0) {
+			return wrap;
+		}
+		// Only an icon, not a button: it does nothing by itself; the tags show while it is hovered or focused.
+		const button = element('span', 'tags-icon');
+		button.tabIndex = 0;
+		button.setAttribute('role', 'img');
+		button.setAttribute('aria-label', texts.tagsLabel);
+		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+		svg.setAttribute('viewBox', '0 0 16 16');
+		svg.setAttribute('width', '14');
+		svg.setAttribute('height', '14');
+		svg.setAttribute('aria-hidden', 'true');
+		const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+		path.setAttribute('fill', 'currentColor');
+		path.setAttribute('d', 'M1.5 1.5h6l7 7-6 6-7-7v-6zm2 1v3.6l6 6 3.6-3.6-6-6H3.5zM5 4a1 1 0 1 1 0 2 1 1 0 0 1 0-2z');
+		svg.append(path);
+		button.append(svg);
+		const pop = element('span', 'tags-pop');
+		for (const tag of tags) {
+			const chip = element('button', 'tag-chip', tag);
+			chip.type = 'button';
+			chip.addEventListener('click', () => {
+				searchBox.value = tag;
+				applyFilter();
+			});
+			pop.append(chip);
+		}
+		wrap.append(button, pop);
+		return wrap;
+	}
+
 	function build(rowData) {
 		const item = { data: rowData };
 		const row = element('div', 'row');
@@ -48,7 +86,7 @@
 		const name = element('label', 'name', rowData.label);
 		item.changedBadge = element('span', 'badge', texts.changed);
 		item.sourceBadge = element('span', 'badge');
-		head.append(name, item.changedBadge, item.sourceBadge);
+		head.append(name, tagsMenu(rowData.tags), item.changedBadge, item.sourceBadge);
 
 		const description = element('p', 'desc', rowData.description);
 		const control = element('div', 'control');
@@ -224,15 +262,15 @@
 		for (const item of rows.values()) {
 			const matches =
 				(!onlyChanged || item.data.changed) &&
-				(needle === '' || (item.data.label + ' ' + item.data.description).toLowerCase().includes(needle));
+				(needle === '' || (item.data.label + ' ' + item.data.description + ' ' + item.data.tags.join(' ')).toLowerCase().includes(needle));
 			item.row.hidden = !matches;
 			shown += matches ? 1 : 0;
 		}
 		const filtering = needle !== '' || onlyChanged;
 		for (const section of page.querySelectorAll('section')) {
 			const id = section.dataset.section;
-			const hasMatch = section.dataset.tools
-				? !filtering // The buttons of the tools section are not settings: a search or "Only changed" hides them.
+			const hasMatch = section.dataset.tools || section.dataset.sidebar
+				? !filtering // The buttons of the tools and the Sidebar arrangement are not settings: a search or "Only changed" hides them.
 				: section.querySelectorAll('.row:not([hidden])').length > 0;
 			// Without a filter only the chosen section shows; with one, every section that has a match.
 			section.hidden = filtering ? !hasMatch : id !== current;
@@ -324,6 +362,16 @@
 			section.box.append(item.row);
 			refresh(item, rowData);
 		}
+		// Sidebar: arrange the rows at the top of the Notes tree and see the result. It changes no setting of the list above.
+		const sidebar = element('section');
+		sidebar.dataset.sidebar = 'true';
+		sidebar.dataset.section = 'sidebar';
+		sidebar.append(element('h2', undefined, texts.sidebarTitle), element('p', 'desc', texts.sidebarIntro));
+		sidebarBox = element('div', 'sidebar');
+		sidebar.append(sidebarBox);
+		content.append(sidebar);
+		addNav(nav, 'sidebar', texts.sidebarTitle);
+		renderSidebar(message.sidebar);
 		// Files and logs: the same buttons as the menu of the Settings view. They run commands, they change no setting.
 		const tools = element('section');
 		tools.dataset.tools = 'true';
@@ -357,6 +405,152 @@
 		nothing.hidden = true;
 		page.append(nothing);
 		applyFilter();
+	}
+
+	/** Draws the Sidebar section: the rows to arrange, and a preview of the top of the Notes tree. */
+	function renderSidebar(model) {
+		if (!sidebarBox || !model) {
+			return;
+		}
+		sidebarBox.textContent = '';
+
+		const arrange = element('div', 'sidebar-rows');
+		arrange.append(element('h3', undefined, texts.sidebarRows));
+		const list = element('ul', 'sidebar-list');
+		for (const item of model.items) {
+			const line = element('li', 'sidebar-line');
+			const name = element('span', 'sidebar-name');
+			name.append(element('span', 'glyph', item.glyph), element('strong', undefined, item.label));
+			const detail = element('span', 'sidebar-detail', item.description);
+			const text = element('span', 'sidebar-text');
+			text.append(name, detail);
+
+			const buttons = element('span', 'sidebar-buttons');
+			for (const [direction, label, glyph, enabled] of [
+				['up', texts.sidebarUp, '\u2191', item.canMoveUp],
+				['down', texts.sidebarDown, '\u2193', item.canMoveDown],
+			]) {
+				const button = element('button', 'secondary icon', glyph);
+				button.type = 'button';
+				button.title = label;
+				button.setAttribute('aria-label', label + ': ' + item.label);
+				button.disabled = !enabled;
+				button.dataset.key = item.id + ':' + direction;
+				button.addEventListener('click', () => {
+					sidebarFocus = button.dataset.key;
+					send({ type: 'sidebarMove', id: item.id, direction });
+				});
+				buttons.append(button);
+			}
+			const show = element('label', 'sidebar-show');
+			if (item.syncMode !== undefined) {
+				// The sync rows are shown or hidden by the setting that says which services get a row.
+				const select = element('select');
+				for (const choice of model.syncChoices) {
+					const option = element('option', undefined, choice.label);
+					option.value = choice.value;
+					select.append(option);
+				}
+				select.value = item.syncMode;
+				select.dataset.key = item.id + ':show';
+				select.setAttribute('aria-label', texts.sidebarSyncShow);
+				select.addEventListener('change', () => {
+					sidebarFocus = select.dataset.key;
+					send({ type: 'sidebarSyncRows', value: select.value });
+				});
+				show.append(select);
+			} else {
+				const box = element('input');
+				box.type = 'checkbox';
+				box.checked = item.visible;
+				box.dataset.key = item.id + ':show';
+				box.addEventListener('change', () => {
+					sidebarFocus = box.dataset.key;
+					send({ type: 'sidebarShow', id: item.id, visible: box.checked });
+				});
+				show.append(box, document.createTextNode(texts.sidebarShow));
+			}
+			if (item.isGap) {
+				// A blank row is the user's own: it can be taken away again.
+				const remove = element('button', 'secondary', texts.sidebarRemoveGap);
+				remove.type = 'button';
+				remove.setAttribute('aria-label', texts.sidebarRemoveGap + ': ' + item.label);
+				remove.addEventListener('click', () => send({ type: 'sidebarRemoveGap', id: item.id }));
+				show.append(remove);
+			}
+			line.append(text, buttons, show);
+			if (!item.visible) {
+				line.classList.add('is-hidden');
+			}
+			list.append(line);
+		}
+		const reset = element('button', 'secondary', texts.sidebarReset);
+		reset.type = 'button';
+		reset.addEventListener('click', () => send({ type: 'sidebarReset' }));
+		const addGap = element('button', 'secondary', texts.sidebarAddGap);
+		addGap.type = 'button';
+		addGap.disabled = !model.canAddGap;
+		addGap.addEventListener('click', () => send({ type: 'sidebarAddGap' }));
+		const actions = element('div', 'sidebar-actions');
+		actions.append(addGap, reset);
+		arrange.append(list, actions);
+
+		// The preview is the top of the tree as it is drawn: the shown rows in their order, then the folders.
+		const preview = element('div', 'sidebar-preview-box');
+		preview.append(element('h3', undefined, texts.sidebarPreview));
+		const tree = element('div', 'sidebar-tree');
+		tree.setAttribute('role', 'img');
+		tree.setAttribute('aria-label', texts.sidebarPreview);
+		// The same rule as the tree: a blank row is drawn only between two rows, or between the last row and the folders.
+		let gap = false;
+		let any = false;
+		for (const item of model.items) {
+			if (item.isGap) {
+				gap = gap || item.visible;
+				continue;
+			}
+			if (!item.visible) {
+				continue;
+			}
+			if (gap && any) {
+				tree.append(element('div', 'tree-gap'));
+			}
+			gap = false;
+			any = true;
+			if (item.syncMode !== undefined) {
+				// The sync rows have no group row above them: a row for each service.
+				for (const sample of item.sample) {
+					const row = element('div', 'tree-row group');
+					row.append(element('span', 'glyph', item.glyph), element('span', undefined, sample));
+					tree.append(row);
+				}
+				continue;
+			}
+			const row = element('div', 'tree-row group');
+			row.append(element('span', 'chevron', '\u25be'), element('span', 'glyph', item.glyph), element('span', undefined, item.label));
+			tree.append(row);
+			for (const sample of item.sample) {
+				tree.append(element('div', 'tree-row child', sample));
+			}
+		}
+		if (!any) {
+			tree.append(element('div', 'tree-row child', texts.sidebarEmpty));
+		}
+		if (gap && any) {
+			tree.append(element('div', 'tree-gap'));
+		}
+		tree.append(element('div', 'tree-row folders', texts.sidebarFolders));
+		preview.append(tree);
+
+		sidebarBox.append(arrange, preview);
+		if (sidebarFocus) {
+			// A button that was pressed is drawn again: keep the keyboard where it was.
+			const again = sidebarBox.querySelector('[data-key="' + sidebarFocus + '"]');
+			if (again && !again.disabled) {
+				again.focus();
+			}
+			sidebarFocus = null;
+		}
 	}
 
 	function update(newRows) {
@@ -394,6 +588,8 @@
 			init(message);
 		} else if (message.type === 'show' && texts && navButtons.has(message.section)) {
 			choose(message.section);
+		} else if (message.type === 'sidebar' && texts) {
+			renderSidebar(message.sidebar);
 		} else if (message.type === 'update' && texts) {
 			update(message.rows);
 		} else if (message.type === 'result' && texts) {

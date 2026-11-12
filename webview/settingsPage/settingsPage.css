@@ -164,6 +164,57 @@ button:focus-visible {
 	gap: 4px 8px;
 }
 
+.tags {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+}
+
+.tags-icon {
+	display: inline-flex;
+	padding: 2px;
+	color: var(--vscode-descriptionForeground);
+	cursor: default;
+}
+
+.tags-icon:hover,
+.tags-icon:focus-visible {
+	color: var(--vscode-foreground);
+}
+
+/* The popup is inside the wrapper, so moving the pointer onto it keeps it open. */
+.tags-pop {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	z-index: 10;
+	display: none;
+	flex-wrap: wrap;
+	gap: 4px;
+	width: max-content;
+	max-width: 260px;
+	padding: 6px;
+	background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+/* Keyboard focus only: a click leaves the focus on the icon or a chip, which must not keep the card open. */
+.tags:hover .tags-pop,
+.tags:has(:focus-visible) .tags-pop {
+	display: flex;
+}
+
+.tag-chip {
+	padding: 1px 8px;
+	color: var(--vscode-badge-foreground);
+	background: var(--vscode-badge-background);
+	border: none;
+	border-radius: 10px;
+	font-size: 0.85em;
+	cursor: pointer;
+}
+
 .name {
 	font-weight: 600;
 }
@@ -339,6 +390,11 @@ section[hidden] {
 	display: none;
 }
 
+/* While a search shows several sections, they are not glued together. */
+section:not([hidden]) ~ section:not([hidden]) {
+	margin-top: 28px;
+}
+
 /* A narrow tab: the menu becomes a row above the settings. */
 @media (max-width: 640px) {
 	.layout {
@@ -423,4 +479,147 @@ section[hidden] {
 	color: var(--vscode-descriptionForeground);
 	font-size: 0.9em;
 	word-break: break-all;
+}
+
+/* The Sidebar section: the rows to arrange on the left, the preview of the tree on the right. */
+.sidebar {
+	display: grid;
+	grid-template-columns: minmax(0, 3fr) minmax(220px, 2fr);
+	gap: 16px;
+	align-items: start;
+}
+
+.sidebar h3 {
+	margin: 0 0 8px;
+	font-size: 1em;
+	font-weight: 600;
+}
+
+.sidebar-list {
+	margin: 0 0 12px;
+	padding: 0;
+	list-style: none;
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+/* The name takes the line and the buttons wrap under it when the page is narrow, so nothing is cut off. */
+.sidebar-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 12px;
+	padding: 10px 12px;
+}
+
+.sidebar-line + .sidebar-line {
+	border-top: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+}
+
+.sidebar-line.is-hidden .sidebar-text {
+	opacity: 0.55;
+}
+
+.sidebar-text {
+	display: flex;
+	flex: 1 1 160px;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.sidebar-name {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.sidebar-detail {
+	color: var(--vscode-descriptionForeground);
+}
+
+.sidebar-buttons {
+	display: inline-flex;
+	gap: 4px;
+}
+
+.sidebar-show {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+}
+
+.sidebar-show select {
+	max-width: 100%;
+}
+
+.sidebar-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.sidebar-show {
+	gap: 8px;
+}
+
+button.icon {
+	min-width: 28px;
+	padding: 2px 6px;
+}
+
+.sidebar-preview-box {
+	position: sticky;
+	top: 56px;
+}
+
+/* A small picture of the tree, drawn with the colours of the sidebar of the theme. */
+.sidebar-tree {
+	padding: 6px 0;
+	color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+	background: var(--vscode-sideBar-background, var(--vscode-editor-background));
+	border: 1px solid var(--vscode-widget-border, var(--vscode-panel-border, transparent));
+	border-radius: 4px;
+}
+
+.tree-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 22px;
+	padding: 0 8px;
+}
+
+.tree-row.group {
+	font-weight: 600;
+}
+
+.tree-row.child {
+	padding-left: 38px;
+	color: var(--vscode-descriptionForeground);
+}
+
+.tree-row.folders {
+	color: var(--vscode-descriptionForeground);
+	font-style: italic;
+}
+
+.tree-row .chevron {
+	width: 12px;
+	font-size: 0.8em;
+}
+
+.tree-gap {
+	height: 10px;
+}
+
+@media (max-width: 900px) {
+	.sidebar {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.sidebar-preview-box {
+		position: static;
+	}
 }

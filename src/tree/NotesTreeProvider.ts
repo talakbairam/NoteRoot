@@ -7,6 +7,8 @@ import { Logger } from "../services/Logger";
 import { PathGuard } from "../services/PathGuard";
 import { RootFolderService } from "../services/RootFolderService";
 import { SettingsService } from "../services/SettingsService";
+import { DEFAULT_SIDEBAR_ORDER, isGapItem, type SidebarGapId } from "../services/SidebarLayout";
+import type { SidebarLayoutService } from "../services/SidebarLayoutService";
 import type { SyncHub } from "../services/SyncHub";
 import type { SyncConnection, SyncService } from "../services/SyncService";
 import { ShowHiddenService } from "../services/ShowHiddenService";
@@ -41,6 +43,8 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NotesNode>, vs
   private syncIcons: ((providerId: string) => Record<SyncRowState, vscode.Uri>) | undefined;
   /** What the row showed last: the tree is refreshed only when it changes. */
   private syncSignature = "";
+  /** The order and the visibility of the rows at the top of the tree (see `attachSidebarLayout`). */
+  private sidebarLayout: SidebarLayoutService | undefined;
   /** Supplies the "Pinned" and "Recent" groups at the top of the tree. It needs this provider too, so it is attached afterwards. */
   private pinnedRecent: PinnedRecentProvider | undefined;
 
@@ -96,6 +100,12 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NotesNode>, vs
   attachPinnedRecent(provider: PinnedRecentProvider): void {
     this.pinnedRecent = provider;
     this.subscriptions.push(provider.onDidChangeTreeData(() => this.refresh()));
+  }
+
+  /** Puts the rows at the top of the tree in the order the user chose and leaves out the hidden ones. */
+  attachSidebarLayout(layout: SidebarLayoutService): void {
+    this.sidebarLayout = layout;
+    this.subscriptions.push(layout.onDidChange(() => this.refresh()));
   }
 
   /** Shows the state of the sync as the first row of the tree; the tree is refreshed when that state changes. */
@@ -207,11 +217,39 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NotesNode>, vs
       return files;
     }
     const groups = await this.pinnedRecent.getChildren();
-    const rows =
-      files.length > 0 ? [...groups, new GroupSpacerItem("afterGroups"), ...files] : groups;
-    // A blank row between the sync rows and the groups, like the one under the groups.
-    const sync = this.syncRows();
-    return sync.length > 0 ? [...sync, new GroupSpacerItem("afterSync"), ...rows] : rows;
+    // The sync rows, the three groups and the blank rows, in the order of the user's layout (the default order without one).
+    const order = this.sidebarLayout?.order() ?? DEFAULT_SIDEBAR_ORDER;
+    const top: NotesNode[] = [];
+    // A blank row is drawn only between two rows (or between the last row and the folders): never first, never two in a row.
+    let gap: SidebarGapId | undefined;
+    for (const id of order) {
+      if (isGapItem(id)) {
+        if (!this.sidebarLayout || this.sidebarLayout.isVisible(id)) {
+          gap ??= id;
+        }
+        continue;
+      }
+      // The sync rows are hidden by the setting `syncRows` (see `syncRows()`); the groups by the layout.
+      if (id !== "sync" && this.sidebarLayout && !this.sidebarLayout.isVisible(id)) {
+        continue;
+      }
+      const rows: NotesNode[] =
+        id === "sync"
+          ? this.syncRows()
+          : groups.filter((group) => group instanceof PinnedRecentGroupItem && group.group === id);
+      if (rows.length === 0) {
+        continue;
+      }
+      if (gap !== undefined && top.length > 0) {
+        top.push(new GroupSpacerItem(gap));
+      }
+      gap = undefined;
+      top.push(...rows);
+    }
+    if (gap !== undefined && top.length > 0 && files.length > 0) {
+      top.push(new GroupSpacerItem(gap));
+    }
+    return [...top, ...files];
   }
 
   /** The folders and files inside a folder of the notes folder (or inside the notes folder itself), without the groups. */
@@ -291,9 +329,9 @@ export class NotesTreeProvider implements vscode.TreeDataProvider<NotesNode>, vs
     if (!(element instanceof NoteItem)) {
       return undefined;
     }
-    // A note in the Pinned or Recent group sits under its group, not under its folder.
-    const group = /^(pinned|recent):/.exec(element.id ?? "")?.[1];
-    if (group === "pinned" || group === "recent") {
+    // A note in the Favorites, Pinned or Recent group sits under its group, not under its folder.
+    const group = /^(favorites|pinned|recent):/.exec(element.id ?? "")?.[1];
+    if (group === "favorites" || group === "pinned" || group === "recent") {
       return new PinnedRecentGroupItem(group, 0, true);
     }
     const slash = element.relativePath.lastIndexOf("/");

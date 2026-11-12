@@ -6,8 +6,8 @@ import { PathGuard } from "./PathGuard";
 import { renameRecent } from "./RecentNotesService";
 import { RootFolderService } from "./RootFolderService";
 
-/** Where the pinned notes are stored: `custom.pinned` of `.noteroot/config.json`. */
-const CONFIG_KEY = "pinned";
+/** Where the pinned notes are stored by default: `custom.pinned` of `.noteroot/config.json`. */
+const PINNED_KEY = "pinned";
 
 /** The paths in the stored value. Anything that is not a non-empty text is ignored. */
 function readPaths(value: unknown): string[] {
@@ -21,7 +21,8 @@ function readPaths(value: unknown): string[] {
 /**
  * The notes the user pinned, stored in the `custom` part of the NoteRoot config file of the notes
  * folder, so they belong to that folder and travel with it. Paths are relative to the root and
- * `/`-separated, in the order they were pinned. Only files are pinned.
+ * `/`-separated, in the order they were pinned. The Favorites group uses a second instance with its own
+ * `configKey` (`custom.favorites`), which also holds folders; what is kept is decided by the commands.
  */
 export class PinnedNotesService implements vscode.Disposable {
   private readonly changeEmitter = new vscode.EventEmitter<void>();
@@ -34,7 +35,9 @@ export class PinnedNotesService implements vscode.Disposable {
     private readonly rootService: RootFolderService,
     private readonly configService: ConfigService,
     private readonly pathGuard: PathGuard,
-    private readonly logger: Logger
+    private readonly logger: Logger,
+    /** The key of `custom` where this list is stored. */
+    private readonly configKey: string = PINNED_KEY
   ) {
     this.subscriptions = [
       this.changeEmitter,
@@ -43,7 +46,7 @@ export class PinnedNotesService implements vscode.Disposable {
         for (const { oldUri, newUri } of event.files) {
           void this.applyRename(oldUri, newUri).catch((error: unknown) =>
             this.logger.warn(
-              `Could not update the pinned notes after a rename: ${error instanceof Error ? error.message : String(error)}`
+              `Could not update the list ${this.configKey} after a rename: ${error instanceof Error ? error.message : String(error)}`
             )
           );
         }
@@ -58,7 +61,7 @@ export class PinnedNotesService implements vscode.Disposable {
       return [];
     }
     const { config } = await this.configService.ensure(root);
-    return readPaths(config.custom[CONFIG_KEY]);
+    return readPaths(config.custom[this.configKey]);
   }
 
   /**
@@ -108,15 +111,17 @@ export class PinnedNotesService implements vscode.Disposable {
     );
   }
 
-  /** Rewrites `custom.pinned`, keeping entries that are not texts as they are. */
+  /** Rewrites the list in `custom`, keeping entries that are not texts as they are. */
   private async change(update: (stored: unknown[]) => unknown[]): Promise<void> {
     const root = this.rootService.getRootUri();
     if (!root || !this.rootService.hasRoot) {
       throw new RootMissingError();
     }
     await this.configService.updateCustom(root, (custom) => {
-      const stored = Array.isArray(custom[CONFIG_KEY]) ? (custom[CONFIG_KEY] as unknown[]) : [];
-      custom[CONFIG_KEY] = update(stored);
+      const stored = Array.isArray(custom[this.configKey])
+        ? (custom[this.configKey] as unknown[])
+        : [];
+      custom[this.configKey] = update(stored);
     });
     this.changeEmitter.fire();
   }

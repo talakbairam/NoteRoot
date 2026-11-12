@@ -5,6 +5,9 @@ const MAX_ID_LENGTH = 100;
 const MAX_VALUE_LENGTH = 1000;
 const MAX_LIST_ENTRIES = 200;
 
+import { SyncRowsModes, type SyncRowsMode } from "../constants/settings";
+import { isGapItem, isSidebarItemId, type SidebarItemId } from "../services/SidebarLayout";
+
 /** What the page edits with: a text, a switch or the entries of a list. */
 export type SettingEditValue = string | boolean | string[];
 
@@ -19,7 +22,43 @@ export type SettingsPageToExtensionMessage =
   | { type: "reset"; id: string }
   | { type: "action"; id: string }
   /** Takes one item of a list under a setting away (a saved key): `item` is the name the extension gave it. */
-  | { type: "forget"; id: string; item: string };
+  | { type: "forget"; id: string; item: string }
+  /** The Sidebar section: a row one place up or down, shown or hidden, or the default again. */
+  | { type: "sidebarMove"; id: SidebarItemId; direction: "up" | "down" }
+  | { type: "sidebarShow"; id: SidebarItemId; visible: boolean }
+  /** Which sync services get a row (the setting `syncRows`; `none` hides the sync rows). */
+  | { type: "sidebarSyncRows"; value: SyncRowsMode }
+  /** Adds a blank row at the end, or removes one (only a blank row can be removed). */
+  | { type: "sidebarAddGap" }
+  | { type: "sidebarRemoveGap"; id: SidebarItemId }
+  | { type: "sidebarReset" };
+
+/** One row at the top of the Notes tree as the Sidebar section shows it (a line to arrange and a line of the preview). */
+export interface SidebarItemModel {
+  id: SidebarItemId;
+  label: string;
+  description: string;
+  /** A small mark in front of the name. */
+  glyph: string;
+  visible: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  /** Example lines shown under the row in the preview. */
+  sample: string[];
+  /** True for a blank row (it has no name of its own, only a place in the list). */
+  isGap?: boolean;
+  /** Only for the sync row: which services get a row. Its visibility is this setting, not a switch of its own. */
+  syncMode?: SyncRowsMode;
+}
+
+/** The Sidebar section: the rows in the order they have now, hidden ones included. */
+export interface SidebarModel {
+  items: SidebarItemModel[];
+  /** False when the most blank rows are there already. */
+  canAddGap: boolean;
+  /** The choices of the sync row (Every service, Only the connected service, None). */
+  syncChoices: { value: SyncRowsMode; label: string }[];
+}
 
 /** One setting as the page shows it. */
 export interface SettingRow {
@@ -31,6 +70,8 @@ export interface SettingRow {
   kind: "choice" | "text" | "number" | "list" | "action" | "switch" | "toggle" | "status";
   label: string;
   description: string;
+  /** Extra words the search box finds this setting by. */
+  tags: string[];
   /** The value now: a text, a number written as text, a switch, or the entries of a list. */
   value: SettingEditValue;
   /** The value as the page shows it (a label for a choice, a count for a list). */
@@ -62,6 +103,8 @@ export interface SettingsPageTexts {
   tools: SettingsPageTool[];
   intro: string;
   searchLabel: string;
+  /** The label of the tag icon next to a setting's name. */
+  tagsLabel: string;
   searchPlaceholder: string;
   onlyChanged: string;
   noMatches: string;
@@ -73,6 +116,19 @@ export interface SettingsPageTexts {
   forgetKey: string;
   /** The note under the title of the Advanced section. */
   advancedNote: string;
+  sidebarTitle: string;
+  sidebarIntro: string;
+  sidebarPreview: string;
+  sidebarRows: string;
+  sidebarShow: string;
+  sidebarSyncShow: string;
+  sidebarAddGap: string;
+  sidebarRemoveGap: string;
+  sidebarUp: string;
+  sidebarDown: string;
+  sidebarReset: string;
+  sidebarFolders: string;
+  sidebarEmpty: string;
   change: string;
   apply: string;
   listHint: string;
@@ -83,7 +139,15 @@ export interface SettingsPageTexts {
 }
 
 export type ExtensionToSettingsPageMessage =
-  | { type: "init"; texts: SettingsPageTexts; rows: SettingRow[]; section?: string }
+  | {
+      type: "init";
+      texts: SettingsPageTexts;
+      rows: SettingRow[];
+      sidebar: SidebarModel;
+      section?: string;
+    }
+  /** The order or the visibility of the sidebar rows changed. */
+  | { type: "sidebar"; sidebar: SidebarModel }
   /** A page that is open shows this section (a group of the settings, or `tools`). */
   | { type: "show"; section: string }
   /** The settings changed (anywhere): the same rows again, with the new values. */
@@ -104,6 +168,27 @@ export function parseSettingsPageMessage(
   switch (message.type) {
     case "ready":
       return { type: "ready" };
+    case "sidebarReset":
+      return { type: "sidebarReset" };
+    case "sidebarMove":
+      return isSidebarItemId(message.id) &&
+        (message.direction === "up" || message.direction === "down")
+        ? { type: "sidebarMove", id: message.id, direction: message.direction }
+        : undefined;
+    case "sidebarAddGap":
+      return { type: "sidebarAddGap" };
+    case "sidebarRemoveGap":
+      return isSidebarItemId(message.id) && isGapItem(message.id)
+        ? { type: "sidebarRemoveGap", id: message.id }
+        : undefined;
+    case "sidebarSyncRows":
+      return SyncRowsModes.some((mode) => mode === message.value)
+        ? { type: "sidebarSyncRows", value: message.value as SyncRowsMode }
+        : undefined;
+    case "sidebarShow":
+      return isSidebarItemId(message.id) && typeof message.visible === "boolean"
+        ? { type: "sidebarShow", id: message.id, visible: message.visible }
+        : undefined;
     case "tool":
       return TOOL_IDS.includes(message.id as ToolId)
         ? { type: "tool", id: message.id as ToolId }
