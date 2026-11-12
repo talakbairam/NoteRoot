@@ -1,32 +1,43 @@
 import * as vscode from "vscode";
 import { Strings } from "../constants/strings";
+import type { SidebarGapId } from "../services/SidebarLayout";
 import { NoteItem } from "./NoteItem";
 
-export type PinnedRecentGroup = "pinned" | "recent";
+export type PinnedRecentGroup = "favorites" | "pinned" | "recent";
 
-/** Context values of the "Pinned" and "Recent" group rows (the menus test them) and of the notes inside them. */
+/** Context values of the "Favorites", "Pinned" and "Recent" group rows (the menus test them) and of the items inside them. */
 export const GROUP_CONTEXT = {
+  favorites: "noteRoot.pinnedRecentGroup.favorites",
   pinned: "noteRoot.pinnedRecentGroup.pinned",
   recent: "noteRoot.pinnedRecentGroup.recent",
 } as const;
 export const RECENT_ITEM_CONTEXT = "noteRoot.recentItem";
 export const PINNED_ITEM_CONTEXT = "noteRoot.pinnedItem";
+export const FAVORITE_ITEM_CONTEXT = "noteRoot.favoriteItem";
 
-/** "Pinned" or "Recent": the two group rows at the top of the Notes tree, above the folders and files. */
+const GROUP_LABELS: Record<PinnedRecentGroup, string> = {
+  favorites: Strings.pinnedRecent.favorites,
+  pinned: Strings.pinnedRecent.pinned,
+  recent: Strings.pinnedRecent.recent,
+};
+const GROUP_ICONS: Record<PinnedRecentGroup, string> = {
+  favorites: "star-full",
+  pinned: "pinned",
+  recent: "history",
+};
+
+/** "Favorites", "Pinned" or "Recent": the group rows at the top of the Notes tree, above the folders and files. */
 export class PinnedRecentGroupItem extends vscode.TreeItem {
   constructor(
     readonly group: PinnedRecentGroup,
     count: number,
     enabled: boolean
   ) {
-    super(
-      group === "pinned" ? Strings.pinnedRecent.pinned : Strings.pinnedRecent.recent,
-      vscode.TreeItemCollapsibleState.Expanded
-    );
+    super(GROUP_LABELS[group], vscode.TreeItemCollapsibleState.Expanded);
     this.id = `pinnedrecent:${group}`;
     // The count is always there, also when it is 0; a group that is off says so, like the Tag Patterns of the other view.
     this.description = enabled ? String(count) : `${count} · ${Strings.pinnedRecent.off}`;
-    this.iconPath = new vscode.ThemeIcon(group === "pinned" ? "pinned" : "history");
+    this.iconPath = new vscode.ThemeIcon(GROUP_ICONS[group]);
     this.contextValue = GROUP_CONTEXT[group] + (enabled ? ".on" : ".off");
   }
 }
@@ -65,7 +76,7 @@ export class SyncStatusItem extends vscode.TreeItem {
  * because the id of a row of a tree must be unique.
  */
 export class GroupSpacerItem extends vscode.TreeItem {
-  constructor(name: "afterSync" | "afterGroups") {
+  constructor(name: SidebarGapId) {
     super(" ", vscode.TreeItemCollapsibleState.None);
     this.id = `pinnedrecent:spacer:${name}`;
     this.contextValue = "noteRoot.spacer";

@@ -21,11 +21,14 @@ import {
 import { reportError } from "../commands/safe";
 
 import { showStatus } from "../util/status";
+import { SyncRowsModes } from "../constants/settings";
+import { isGapItem } from "../services/SidebarLayout";
 import {
   TOOL_IDS,
   parseSettingsPageMessage,
   type ExtensionToSettingsPageMessage,
   type ToolId,
+  type SidebarModel,
   type SettingRow,
   type SettingsPageTexts,
   type SettingsPageToExtensionMessage,
@@ -66,6 +69,11 @@ export class SettingsPageProvider implements vscode.Disposable {
       context.autoTagPatterns.onDidChange(refresh),
       context.googleClientStore.onDidChange(refresh),
       context.savedSecrets.onDidChange(refresh),
+      context.sidebarLayout.onDidChange(() =>
+        this.post({ type: "sidebar", sidebar: this.sidebar() })
+      ),
+      // The sync row is shown or hidden by the setting `syncRows`, so the Sidebar section follows the settings too.
+      context.settings.onDidChange(() => this.post({ type: "sidebar", sidebar: this.sidebar() })),
     ];
   }
 
@@ -122,8 +130,46 @@ export class SettingsPageProvider implements vscode.Disposable {
         type: "init",
         texts: this.texts(),
         rows: this.rows(),
+        sidebar: this.sidebar(),
         section: this.sectionToShow,
       });
+      return;
+    }
+    if (message.type === "sidebarMove") {
+      await this.changeSidebar(() =>
+        this.context.sidebarLayout.move(message.id, message.direction === "up" ? -1 : 1)
+      );
+      return;
+    }
+    if (message.type === "sidebarShow") {
+      // The sync row has no switch of its own: the setting `syncRows` decides (`sidebarSyncRows`).
+      if (message.id !== "sync") {
+        await this.changeSidebar(() =>
+          this.context.sidebarLayout.setVisible(message.id, message.visible)
+        );
+      }
+      return;
+    }
+    if (message.type === "sidebarAddGap") {
+      await this.changeSidebar(() => this.context.sidebarLayout.addGap());
+      return;
+    }
+    if (message.type === "sidebarRemoveGap") {
+      await this.changeSidebar(() => this.context.sidebarLayout.removeGap(message.id));
+      return;
+    }
+    if (message.type === "sidebarSyncRows") {
+      const def = findSettingDef("syncRows");
+      if (def) {
+        const error = await applySettingEdit(this.context, def, message.value);
+        if (error !== undefined) {
+          this.logger.warn(`Could not change the sync rows: ${error}`);
+        }
+      }
+      return;
+    }
+    if (message.type === "sidebarReset") {
+      await this.changeSidebar(() => this.context.sidebarLayout.reset());
       return;
     }
     if (message.type === "tool") {
@@ -166,6 +212,19 @@ export class SettingsPageProvider implements vscode.Disposable {
     }
   }
 
+  /**
+   * A change of the sidebar layout is written to the config file of the notes folder. Without a notes folder, or with a config
+   * file that may not be changed, it is reported and the page shows the layout as it is.
+   */
+  private async changeSidebar(change: () => Promise<void>): Promise<void> {
+    try {
+      await change();
+    } catch (error) {
+      reportError(this.logger, "Changing the sidebar", error);
+      this.post({ type: "sidebar", sidebar: this.sidebar() });
+    }
+  }
+
   /** Messages for a page that is not ready are dropped: its `init` carries the current rows anyway. */
   private post(message: ExtensionToSettingsPageMessage): void {
     if (this.panel && this.ready) {
@@ -183,6 +242,7 @@ export class SettingsPageProvider implements vscode.Disposable {
       title: text.title,
       intro: text.intro,
       searchLabel: text.searchLabel,
+      tagsLabel: text.tagsLabel,
       searchPlaceholder: text.searchPlaceholder,
       onlyChanged: text.onlyChanged,
       noMatches: text.noMatches,
@@ -192,6 +252,19 @@ export class SettingsPageProvider implements vscode.Disposable {
       reset: text.reset,
       forgetKey: text.forgetKey,
       advancedNote: text.advancedNote,
+      sidebarTitle: Strings.sidebar.title,
+      sidebarIntro: Strings.sidebar.intro,
+      sidebarPreview: Strings.sidebar.previewTitle,
+      sidebarRows: Strings.sidebar.orderTitle,
+      sidebarShow: Strings.sidebar.show,
+      sidebarSyncShow: Strings.sidebar.syncShow,
+      sidebarAddGap: Strings.sidebar.addGap,
+      sidebarRemoveGap: Strings.sidebar.removeGap,
+      sidebarUp: Strings.sidebar.up,
+      sidebarDown: Strings.sidebar.down,
+      sidebarReset: Strings.sidebar.reset,
+      sidebarFolders: Strings.sidebar.folders,
+      sidebarEmpty: Strings.sidebar.empty,
       change: text.change,
       apply: text.apply,
       listHint: text.listHint,
@@ -201,6 +274,40 @@ export class SettingsPageProvider implements vscode.Disposable {
       defaultLabel: text.defaultLabel,
       toolsTitle: text.toolsTitle,
       tools: TOOL_IDS.map((id) => ({ id, ...text.tools[id] })),
+    };
+  }
+
+  /** The rows at the top of the Notes tree in the order the user chose, with what the Sidebar section needs. */
+  private sidebar(): SidebarModel {
+    const layout = this.context.sidebarLayout;
+    const order = layout.order();
+    const syncMode = this.context.settings.syncRows;
+    return {
+      items: order.map((id, index) => {
+        const isGap = isGapItem(id);
+        const text = isGap ? { ...Strings.sidebar.gap, sample: [] } : Strings.sidebar.items[id];
+        const isSync = id === "sync";
+        return {
+          id,
+          label: text.label,
+          description: text.description,
+          glyph: text.glyph,
+          // The sync rows are hidden by the setting `syncRows`; the others by the layout.
+          visible: isSync ? syncMode !== "none" : layout.isVisible(id),
+          canMoveUp: index > 0,
+          canMoveDown: index < order.length - 1,
+          sample: [
+            ...(isSync && syncMode === "all" ? Strings.sidebar.items.sync.sampleAll : text.sample),
+          ],
+          ...(isSync ? { syncMode } : {}),
+          ...(isGap ? { isGap: true } : {}),
+        };
+      }),
+      canAddGap: layout.canAddGap(),
+      syncChoices: SyncRowsModes.map((value) => ({
+        value,
+        label: Strings.settingsView.syncRowsChoices[value],
+      })),
     };
   }
 
@@ -235,6 +342,7 @@ export class SettingsPageProvider implements vscode.Disposable {
       kind: def.kind,
       label: text.label,
       description: text.description,
+      tags: [...Strings.settingsView.tags[def.id]],
       // A password never goes to the page: it shows that one is set (valueText) and takes a new one.
       value: def.secret
         ? ""

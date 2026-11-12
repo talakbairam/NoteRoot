@@ -4,6 +4,18 @@ All notable changes to NoteRoot are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-11-12
+
+### Added
+
+- **Favorites**: a new group at the top of the Notes tree, next to Pinned and Recent. Right-click a file or folder ▸ **Add to Favorites**. It follows renames and moves and has the same eye button to hide it.
+- **Sidebar** section on the Settings page: a preview of the top of the Notes tree where you move and hide its rows (sync, Favorites, Pinned, Recent) and add blank rows. It is saved with the notes folder (`custom.sidebar` in `.noteroot/config.json`), and **Back to the default** undoes it.
+- **Tags on every setting**: a tag icon next to the name shows them, and the search box also finds a setting by its tags (for example `pinned` or `secret`).
+
+### Changed
+
+- Updated the development tools (eslint, vsce, Node types).
+
 ## [0.3.0] - 2026-11-01
 
 ### Added
